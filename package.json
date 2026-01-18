@@ -1,0 +1,17 @@
+{
+  "name": "rodinny-jidelnicek",
+  "version": "1.0.0",
+  "description": "Lokální aplikace pro plánování rodinných jídel",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "init-db": "node backend/database.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "sql.js": "^1.8.0",
+    "cheerio": "^1.0.0-rc.12",
+    "node-fetch": "^2.7.0",
+    "cors": "^2.8.5"
+  }
+}

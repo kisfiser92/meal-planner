@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rodinný jídelníček</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🍽️ Rodinný jídelníček</h1>
+      <div class="header-actions">
+        <button id="btnGenerateWeek" class="btn btn-primary">Vygenerovat nový týden</button>
+        <button id="btnAddRecipe" class="btn btn-secondary">➕ Přidat recept</button>
+      </div>
+    </header>
+
+    <main id="mealPlan">
+      <p class="loading">Načítám jídelníček...</p>
+    </main>
+  </div>
+
+  <!-- Modal pro přidání receptu -->
+  <div id="modalAddRecipe" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Přidat nový recept</h2>
+      
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="url">Import z URL</button>
+        <button class="tab-btn" data-tab="manual">Manuálně</button>
+      </div>
+
+      <!-- Tab: Import z URL -->
+      <div id="tabUrl" class="tab-content active">
+        <div class="form-group">
+          <label>URL receptu:</label>
+          <input type="url" id="recipeUrl" placeholder="https://example.com/recept">
+        </div>
+        <button id="btnImportUrl" class="btn btn-primary">Importovat</button>
+        <div id="importStatus"></div>
+      </div>
+
+      <!-- Tab: Manuální -->
+      <div id="tabManual" class="tab-content">
+        <div class="form-group">
+          <label>Název receptu:</label>
+          <input type="text" id="recipeName" placeholder="Kuřecí řízek">
+        </div>
+        <div class="form-group">
+          <label>Ingredience (každá na nový řádek):</label>
+          <textarea id="recipeIngredients" rows="5" placeholder="500g kuřecích prsou&#10;2 vejce&#10;100g strouhanky"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Postup přípravy:</label>
+          <textarea id="recipeInstructions" rows="6" placeholder="1. Nakrájej maso..."></textarea>
+        </div>
+        <button id="btnSaveManual" class="btn btn-primary">Uložit recept</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal pro detail jídla -->
+  <div id="modalMealDetail" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <div id="mealDetailContent"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

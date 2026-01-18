@@ -1,0 +1,182 @@
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const { initDatabase, recipeDb, mealPlanDb, historyDb, getMonday } = require('./database');
+const generator = require('./generator');
+const RecipeScraper = require('./scraper');
+
+// Inicializace
+const app = express();
+const PORT = 3000;
+const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || '';
+const scraper = new RecipeScraper(CLAUDE_API_KEY);
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '../frontend')));
+
+// Inicializace databáze
+initDatabase();
+
+// === API ENDPOINTS ===
+
+// GET: Načti všechny recepty
+app.get('/api/recipes', (req, res) => {
+  try {
+    const recipes = recipeDb.getAll().map(r => ({
+      ...r,
+      ingredients: JSON.parse(r.ingredients),
+      tags: JSON.parse(r.tags || '[]')
+    }));
+    res.json(recipes);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST: Přidej nový recept (manuálně nebo import)
+app.post('/api/recipes', (req, res) => {
+  try {
+    const { name, ingredients, instructions, source, tags } = req.body;
+    
+    if (!name || !ingredients || !instructions) {
+      return res.status(400).json({ error: 'Chybí povinná pole' });
+    }
+
+    const recipeId = recipeDb.create({
+      name,
+      ingredients: Array.isArray(ingredients) ? ingredients : [ingredients],
+      instructions,
+      source,
+      tags: tags || []
+    });
+
+    res.json({ id: recipeId, message: 'Recept uložen' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST: Parsuj recept z URL
+app.post('/api/recipes/import', async (req, res) => {
+  try {
+    const { url } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ error: 'URL je povinná' });
+    }
+
+    const recipe = await scraper.scrapeRecipe(url);
+    
+    // Automaticky ulož
+    const recipeId = recipeDb.create({
+      ...recipe,
+      tags: []
+    });
+
+    res.json({ id: recipeId, recipe, message: 'Recept importován' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET: Načti aktuální jídelníček
+app.get('/api/meal-plan', (req, res) => {
+  try {
+    const monday = getMonday(new Date());
+    let plan = mealPlanDb.getCurrent();
+
+    // Pokud neexistuje, vygeneruj nový
+    if (!plan) {
+      const meals = generator.generateWeekPlan(4);
+      mealPlanDb.create(monday, meals);
+      
+      // Ulož do historie
+      meals.forEach(m => {
+        historyDb.add(m.recipeId, monday);
+      });
+
+      plan = { week_start: monday, meals: JSON.stringify(meals) };
+    }
+
+    res.json({
+      weekStart: plan.week_start,
+      meals: JSON.parse(plan.meals)
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST: Vygeneruj nový týdenní plán
+app.post('/api/meal-plan/generate', (req, res) => {
+  try {
+    const monday = getMonday(new Date());
+    const meals = generator.generateWeekPlan(4);
+    
+    // Přepiš existující plán
+    const existing = mealPlanDb.getCurrent();
+    if (existing) {
+      mealPlanDb.update(monday, meals);
+    } else {
+      mealPlanDb.create(monday, meals);
+    }
+
+    // Ulož do historie
+    meals.forEach(m => {
+      historyDb.add(m.recipeId, monday);
+    });
+
+    res.json({ meals });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST: Přegeneruj jedno jídlo
+app.post('/api/meal-plan/regenerate', (req, res) => {
+  try {
+    const { mealIndex } = req.body;
+    const monday = getMonday(new Date());
+    const plan = mealPlanDb.getCurrent();
+    
+    if (!plan) {
+      return res.status(404).json({ error: 'Jídelníček neexistuje' });
+    }
+
+    const meals = JSON.parse(plan.meals);
+    const currentIds = meals.map(m => m.recipeId);
+    
+    // Vygeneruj nové jídlo
+    const newMeal = generator.regenerateSingleMeal(currentIds);
+    
+    if (!newMeal) {
+      return res.status(400).json({ error: 'Žádné další recepty k dispozici' });
+    }
+
+    // Aktualizuj plán
+    meals[mealIndex] = {
+      ...meals[mealIndex],
+      recipeId: newMeal.recipeId,
+      recipe: newMeal.recipe
+    };
+
+    mealPlanDb.update(monday, meals);
+    historyDb.add(newMeal.recipeId, monday);
+
+    res.json({ meal: meals[mealIndex] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Spuštění serveru
+app.listen(PORT, () => {
+  console.log(`🍽️  Jídelníček běží na http://localhost:${PORT}`);
+  console.log(`📊 Databáze: ${path.join(__dirname, 'db.sqlite')}`);
+  if (!CLAUDE_API_KEY) {
+    console.log('⚠️  Claude API klíč není nastaven - import z URL nebude fungovat');
+    console.log('   Nastav: export CLAUDE_API_KEY="tvůj-klíč"');
+  }
+});
