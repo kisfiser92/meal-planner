@@ -5,11 +5,9 @@ const path = require('path');
 const dbPath = path.join(__dirname, 'db.sqlite');
 let db = null;
 
-// Inicializace databáze
 async function initDatabase() {
   const SQL = await initSqlJs();
   
-  // Pokud existuje soubor databáze, načti ho
   if (fs.existsSync(dbPath)) {
     const buffer = fs.readFileSync(dbPath);
     db = new SQL.Database(buffer);
@@ -17,7 +15,6 @@ async function initDatabase() {
     db = new SQL.Database();
   }
 
-  // Vytvoř tabulky
   db.run(`
     CREATE TABLE IF NOT EXISTS recipes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,6 +23,8 @@ async function initDatabase() {
       instructions TEXT NOT NULL,
       source TEXT,
       tags TEXT,
+      rating INTEGER DEFAULT 0,
+      notes TEXT DEFAULT "",
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -48,7 +47,6 @@ async function initDatabase() {
   console.log('Databáze inicializována');
 }
 
-// Ulož databázi do souboru
 function saveDatabase() {
   if (!db) return;
   const data = db.export();
@@ -56,7 +54,6 @@ function saveDatabase() {
   fs.writeFileSync(dbPath, buffer);
 }
 
-// Helper pro spuštění SQL a automatické uložení
 function runSQL(sql, params = []) {
   if (!db) throw new Error('Databáze není inicializována');
   const result = db.run(sql, params);
@@ -64,7 +61,6 @@ function runSQL(sql, params = []) {
   return result;
 }
 
-// Helper pro SELECT dotazy
 function querySQL(sql, params = []) {
   if (!db) throw new Error('Databáze není inicializována');
   const stmt = db.prepare(sql);
@@ -77,13 +73,11 @@ function querySQL(sql, params = []) {
   return results;
 }
 
-// Helper pro SELECT jednoho záznamu
 function queryOneSQL(sql, params = []) {
   const results = querySQL(sql, params);
   return results.length > 0 ? results[0] : null;
 }
 
-// CRUD operace pro recepty
 const recipeDb = {
   getAll: () => {
     return querySQL('SELECT * FROM recipes ORDER BY created_at DESC');
@@ -95,19 +89,46 @@ const recipeDb = {
 
   create: (recipe) => {
     runSQL(
-      `INSERT INTO recipes (name, ingredients, instructions, source, tags)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO recipes (name, ingredients, instructions, source, tags, rating, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         recipe.name,
         JSON.stringify(recipe.ingredients),
         recipe.instructions,
         recipe.source || null,
-        JSON.stringify(recipe.tags || [])
+        JSON.stringify(recipe.tags || []),
+        recipe.rating || 0,
+        recipe.notes || ''
       ]
     );
-    // Získej ID posledního vloženého záznamu
     const result = queryOneSQL('SELECT last_insert_rowid() as id');
     return result.id;
+  },
+
+  update: (id, recipe) => {
+    runSQL(
+      `UPDATE recipes 
+       SET name = ?, ingredients = ?, instructions = ?, source = ?, tags = ?, rating = ?, notes = ?
+       WHERE id = ?`,
+      [
+        recipe.name,
+        JSON.stringify(recipe.ingredients),
+        recipe.instructions,
+        recipe.source || null,
+        JSON.stringify(recipe.tags || []),
+        recipe.rating || 0,
+        recipe.notes || '',
+        id
+      ]
+    );
+  },
+
+  updateRating: (id, rating) => {
+    runSQL('UPDATE recipes SET rating = ? WHERE id = ?', [rating, id]);
+  },
+
+  updateNotes: (id, notes) => {
+    runSQL('UPDATE recipes SET notes = ? WHERE id = ?', [notes, id]);
   },
 
   delete: (id) => {
@@ -115,7 +136,6 @@ const recipeDb = {
   }
 };
 
-// Operace pro jídelníčky
 const mealPlanDb = {
   getCurrent: () => {
     const monday = getMonday(new Date());
@@ -137,7 +157,6 @@ const mealPlanDb = {
   }
 };
 
-// Historie použití receptů
 const historyDb = {
   add: (recipeId, date) => {
     runSQL(
@@ -160,7 +179,6 @@ const historyDb = {
   }
 };
 
-// Helper funkce
 function getMonday(date) {
   const d = new Date(date);
   const day = d.getDay();
@@ -177,7 +195,6 @@ module.exports = {
   getMonday
 };
 
-// Spustit inicializaci při přímém spuštění
 if (require.main === module) {
   initDatabase().then(() => {
     console.log('Databáze připravena!');

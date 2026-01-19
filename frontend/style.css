@@ -310,3 +310,85 @@ main {
   color: #555;
   white-space: pre-wrap;
 }
+
+/* NOVÉ: Hodnocení hvězdičkami */
+.rating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 15px 0;
+}
+
+.stars {
+  display: flex;
+  gap: 4px;
+}
+
+.star {
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #ddd;
+}
+
+.star.filled {
+  color: #ffc107;
+}
+
+.star:hover {
+  transform: scale(1.2);
+}
+
+.rating-label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 600;
+}
+
+/* NOVÉ: Poznámky */
+.notes-section {
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 2px solid #e9ecef;
+}
+
+.notes-section h3 {
+  font-size: 16px;
+  margin-bottom: 10px;
+  color: #667eea;
+}
+
+.notes-section textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.notes-section textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.notes-display {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #555;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.notes-display.empty {
+  color: #999;
+  font-style: italic;
+}
+
+.save-notes-btn {
+  margin-top: 10px;
+}

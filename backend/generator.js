@@ -1,35 +1,34 @@
 const { recipeDb, historyDb } = require('./database');
 
-// Generátor jídelníčku s preferencemi
 class MealGenerator {
   constructor() {
     this.usedRecently = new Set();
   }
 
-  // Načte recepty použité v posledních N týdnech
   loadRecentHistory(weeks = 4) {
     const recent = historyDb.getRecent(weeks);
     this.usedRecently = new Set(recent.map(r => r.recipe_id));
   }
 
-  // Vybere náhodný recept s preferencí pro nepoužité
   selectRecipe(excludeIds = []) {
     const allRecipes = recipeDb.getAll();
-    
-    // Filtruj vyloučené
     let available = allRecipes.filter(r => !excludeIds.includes(r.id));
     
     if (available.length === 0) return null;
 
-    // Preferuj recepty, které nebyly nedávno použity
     const notRecent = available.filter(r => !this.usedRecently.has(r.id));
-    const pool = notRecent.length > 0 ? notRecent : available;
+    let pool = notRecent.length > 0 ? notRecent : available;
 
-    // Náhodný výběr
+    // NOVÉ: Preferuj lépe hodnocené recepty (rating 4-5)
+    const highRated = pool.filter(r => r.rating >= 4);
+    if (highRated.length > 0 && Math.random() > 0.3) {
+      // 70% šance vybrat z top receptů
+      pool = highRated;
+    }
+
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  // Vygeneruje jídelníček na týden
   generateWeekPlan(count = 4) {
     this.loadRecentHistory();
     
@@ -52,7 +51,6 @@ class MealGenerator {
     return selected;
   }
 
-  // Vygeneruje jedno nové jídlo (při přegenerování)
   regenerateSingleMeal(currentPlanIds = []) {
     this.loadRecentHistory();
     const recipe = this.selectRecipe(currentPlanIds);
@@ -62,7 +60,6 @@ class MealGenerator {
     } : null;
   }
 
-  // Parsuje JSON data z databáze
   parseRecipe(dbRecipe) {
     return {
       id: dbRecipe.id,
@@ -70,7 +67,9 @@ class MealGenerator {
       ingredients: JSON.parse(dbRecipe.ingredients),
       instructions: dbRecipe.instructions,
       source: dbRecipe.source,
-      tags: JSON.parse(dbRecipe.tags || '[]')
+      tags: JSON.parse(dbRecipe.tags || '[]'),
+      rating: dbRecipe.rating || 0,
+      notes: dbRecipe.notes || ''
     };
   }
 }

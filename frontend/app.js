@@ -1,6 +1,5 @@
 const API_URL = 'http://localhost:3000/api';
 
-// === DOM Elements ===
 const mealPlanDiv = document.getElementById('mealPlan');
 const btnGenerateWeek = document.getElementById('btnGenerateWeek');
 const btnAddRecipe = document.getElementById('btnAddRecipe');
@@ -9,21 +8,17 @@ const modalMealDetail = document.getElementById('modalMealDetail');
 const closeBtns = document.querySelectorAll('.close');
 const tabBtns = document.querySelectorAll('.tab-btn');
 
-// Import elementy
 const btnImportUrl = document.getElementById('btnImportUrl');
 const recipeUrlInput = document.getElementById('recipeUrl');
 const importStatus = document.getElementById('importStatus');
 
-// Manuální elementy
 const btnSaveManual = document.getElementById('btnSaveManual');
 const recipeNameInput = document.getElementById('recipeName');
 const recipeIngredientsInput = document.getElementById('recipeIngredients');
 const recipeInstructionsInput = document.getElementById('recipeInstructions');
 
-// === Inicializace ===
 loadMealPlan();
 
-// === Event Listeners ===
 btnGenerateWeek.addEventListener('click', generateNewWeek);
 btnAddRecipe.addEventListener('click', () => openModal(modalAddRecipe));
 
@@ -34,7 +29,6 @@ closeBtns.forEach(btn => {
   });
 });
 
-// Tab switching
 tabBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     const tabName = btn.dataset.tab;
@@ -42,19 +36,14 @@ tabBtns.forEach(btn => {
   });
 });
 
-// Import z URL
 btnImportUrl.addEventListener('click', importFromUrl);
-
-// Manuální uložení
 btnSaveManual.addEventListener('click', saveManualRecipe);
 
-// Zavření modalu kliknutím mimo
 window.addEventListener('click', (e) => {
   if (e.target === modalAddRecipe) closeModal(modalAddRecipe);
   if (e.target === modalMealDetail) closeModal(modalMealDetail);
 });
 
-// === API Funkce ===
 async function loadMealPlan() {
   try {
     const response = await fetch(`${API_URL}/meal-plan`);
@@ -103,7 +92,6 @@ async function regenerateMeal(mealIndex) {
       return;
     }
     
-    // Refresh celý plán
     loadMealPlan();
   } catch (error) {
     alert('Chyba při přegenerování: ' + error.message);
@@ -178,7 +166,6 @@ async function saveManualRecipe() {
     
     alert('✓ Recept uložen!');
     
-    // Reset formuláře
     recipeNameInput.value = '';
     recipeIngredientsInput.value = '';
     recipeInstructionsInput.value = '';
@@ -189,31 +176,77 @@ async function saveManualRecipe() {
   }
 }
 
-// === UI Funkce ===
 function renderMealPlan(meals) {
+  // Odstraněno dayNames
+  
   const html = `
     <div class="meal-grid">
-      ${meals.map((meal, index) => `
-        <div class="meal-card">
-          <h3>${meal.day}</h3>
-          <h2>${meal.recipe.name}</h2>
-          <div class="ingredients-preview">
-            ${meal.recipe.ingredients.slice(0, 3).join(', ')}${meal.recipe.ingredients.length > 3 ? '...' : ''}
+      ${meals.map((meal, index) => {
+        const dayLabel = index < 3 ? `${index + 1}. jídlo` : 'Alternativa';
+        return `
+          <div class="meal-card">
+            <h3>${dayLabel}</h3>
+            <h2>${meal.recipe.name}</h2>
+            ${renderStars(meal.recipe.rating || 0, meal.recipe.id, true)}
+            <div class="ingredients-preview">
+              ${meal.recipe.ingredients.slice(0, 3).join(', ')}${meal.recipe.ingredients.length > 3 ? '...' : ''}
+            </div>
+            <div class="actions">
+              <button class="btn btn-small btn-secondary" onclick="showMealDetail(${index})">
+                Zobrazit detail
+              </button>
+              <button class="btn btn-small btn-icon" onclick="regenerateMeal(${index})" title="Vygenerovat jiné jídlo">
+                🔄
+              </button>
+            </div>
           </div>
-          <div class="actions">
-            <button class="btn btn-small btn-secondary" onclick="showMealDetail(${index})">
-              Zobrazit detail
-            </button>
-            <button class="btn btn-small btn-icon" onclick="regenerateMeal(${index})" title="Vygenerovat jiné jídlo">
-              🔄
-            </button>
-          </div>
-        </div>
-      `).join('')}
+        `;
+      }).join('')}
     </div>
   `;
   
   mealPlanDiv.innerHTML = html;
+}
+
+function renderStars(rating, recipeId, isCard = false) {
+  const stars = [];
+  for (let i = 1; i <= 5; i++) {
+    const filled = i <= rating ? 'filled' : '';
+    stars.push(`<span class="star ${filled}" data-rating="${i}" data-recipe="${recipeId}" onclick="setRating(${recipeId}, ${i})">★</span>`);
+  }
+  
+  return `
+    <div class="rating ${isCard ? 'rating-card' : ''}">
+      <div class="stars">
+        ${stars.join('')}
+      </div>
+    </div>
+  `;
+}
+
+async function setRating(recipeId, rating) {
+  try {
+    const response = await fetch(`${API_URL}/recipes/${recipeId}/rating`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating })
+    });
+    
+    if (response.ok) {
+      const stars = document.querySelectorAll(`.star[data-recipe="${recipeId}"]`);
+      stars.forEach(star => {
+        const starRating = parseInt(star.dataset.rating);
+        if (starRating <= rating) {
+          star.classList.add('filled');
+        } else {
+          star.classList.remove('filled');
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Chyba při ukládání hodnocení:', error);
+    alert('Chyba při ukládání hodnocení');
+  }
 }
 
 function showMealDetail(index) {
@@ -225,6 +258,8 @@ function showMealDetail(index) {
         <div class="meal-detail">
           <h2>${meal.recipe.name}</h2>
           
+          ${renderStars(meal.recipe.rating || 0, meal.recipe.id)}
+          
           <h3>Ingredience</h3>
           <ul>
             ${meal.recipe.ingredients.map(ing => `<li>${ing}</li>`).join('')}
@@ -232,6 +267,18 @@ function showMealDetail(index) {
           
           <h3>Postup přípravy</h3>
           <p>${meal.recipe.instructions}</p>
+          
+          <div class="notes-section">
+            <h3>📝 Poznámky</h3>
+            ${meal.recipe.notes 
+              ? `<div class="notes-display" id="notesDisplay">${meal.recipe.notes}</div>` 
+              : `<div class="notes-display empty" id="notesDisplay">Zatím žádné poznámky</div>`
+            }
+            <textarea id="notesInput" placeholder="Přidej poznámku (např. 'Příště přidat víc soli')...">${meal.recipe.notes || ''}</textarea>
+            <button class="btn btn-primary btn-small save-notes-btn" onclick="saveNotes(${meal.recipe.id})">
+              Uložit poznámky
+            </button>
+          </div>
           
           ${meal.recipe.source ? `<p style="margin-top: 20px; font-size: 13px; color: #999;">Zdroj: ${meal.recipe.source}</p>` : ''}
         </div>
@@ -242,12 +289,50 @@ function showMealDetail(index) {
     });
 }
 
+async function saveNotes(recipeId) {
+  const notesInput = document.getElementById('notesInput');
+  const notes = notesInput.value.trim();
+  
+  try {
+    const response = await fetch(`${API_URL}/recipes/${recipeId}/notes`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes })
+    });
+    
+    if (response.ok) {
+      // Aktualizuj zobrazení BEZ alertu
+      const notesDisplay = document.getElementById('notesDisplay');
+      if (notes) {
+        notesDisplay.textContent = notes;
+        notesDisplay.classList.remove('empty');
+      } else {
+        notesDisplay.textContent = 'Zatím žádné poznámky';
+        notesDisplay.classList.add('empty');
+      }
+      
+      // Vyčisti textarea - nastavíme prázdnou hodnotu
+      notesInput.value = '';
+      
+      // Vizuální feedback (zelené tlačítko na chvíli)
+      const btn = event.target;
+      const originalText = btn.textContent;
+      btn.textContent = '✓ Uloženo';
+      btn.style.background = '#28a745';
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.background = '';
+      }, 1500);
+    }
+  } catch (error) {
+    alert('Chyba při ukládání poznámek: ' + error.message);
+  }
+}
+
 function switchTab(tabName) {
-  // Deaktivuj všechny
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
   
-  // Aktivuj vybranou
   document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
   document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
 }
@@ -266,6 +351,7 @@ function closeModal(modal) {
   modal.classList.remove('active');
 }
 
-// Zpřístupni funkce globálně pro inline handlers
 window.showMealDetail = showMealDetail;
 window.regenerateMeal = regenerateMeal;
+window.setRating = setRating;
+window.saveNotes = saveNotes;

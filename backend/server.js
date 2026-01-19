@@ -170,6 +170,35 @@ app.post('/api/meal-plan/regenerate', (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// PATCH: Aktualizuj hodnocení receptu
+app.patch('/api/recipes/:id/rating', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rating } = req.body;
+    
+    if (rating < 0 || rating > 5) {
+      return res.status(400).json({ error: 'Hodnocení musí být 0-5' });
+    }
+
+    recipeDb.updateRating(id, rating);
+    res.json({ message: 'Hodnocení uloženo' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PATCH: Aktualizuj poznámky receptu
+app.patch('/api/recipes/:id/notes', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    recipeDb.updateNotes(id, notes);
+    res.json({ message: 'Poznámky uloženy' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Spuštění serveru
 app.listen(PORT, () => {
