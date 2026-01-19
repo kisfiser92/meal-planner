@@ -392,3 +392,117 @@ main {
 .save-notes-btn {
   margin-top: 10px;
 }
+
+/* NOVÉ: Větší modal pro seznam receptů */
+.modal-large {
+  max-width: 800px;
+}
+
+.recipes-controls {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.recipes-controls .form-group {
+  flex: 1;
+  min-width: 200px;
+  margin-bottom: 0;
+}
+
+.recipes-controls select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.recipes-controls select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.recipes-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.recipe-item {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+  transition: all 0.2s;
+}
+
+.recipe-item:hover {
+  transform: translateX(5px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  border-color: #667eea;
+}
+
+.recipe-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.recipe-item-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.recipe-item-rating {
+  display: flex;
+  gap: 3px;
+}
+
+.recipe-item-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.recipe-item-meta {
+  font-size: 13px;
+  color: #999;
+  margin-top: 8px;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.empty-state-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.empty-state-text {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.empty-state-hint {
+  font-size: 14px;
+  color: #bbb;
+}

@@ -200,6 +200,41 @@ app.patch('/api/recipes/:id/notes', (req, res) => {
   }
 });
 
+// PUT: Aktualizuj celý recept
+app.put('/api/recipes/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, ingredients, instructions, source, tags } = req.body;
+    
+    if (!name || !ingredients || !instructions) {
+      return res.status(400).json({ error: 'Chybí povinná pole' });
+    }
+
+    recipeDb.update(id, {
+      name,
+      ingredients: Array.isArray(ingredients) ? ingredients : [ingredients],
+      instructions,
+      source,
+      tags: tags || []
+    });
+
+    res.json({ message: 'Recept aktualizován' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE: Smaž recept
+app.delete('/api/recipes/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    recipeDb.delete(id);
+    res.json({ message: 'Recept smazán' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Spuštění serveru
 app.listen(PORT, () => {
   console.log(`🍽️  Jídelníček běží na http://localhost:${PORT}`);

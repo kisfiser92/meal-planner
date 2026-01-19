@@ -12,6 +12,7 @@
       <h1>🍽️ Rodinný jídelníček</h1>
       <div class="header-actions">
         <button id="btnGenerateWeek" class="btn btn-primary">Vygenerovat nový týden</button>
+        <button id="btnViewRecipes" class="btn btn-secondary">📋 Moje recepty</button>
         <button id="btnAddRecipe" class="btn btn-secondary">➕ Přidat recept</button>
       </div>
     </header>
@@ -32,7 +33,6 @@
         <button class="tab-btn" data-tab="manual">Manuálně</button>
       </div>
 
-      <!-- Tab: Import z URL -->
       <div id="tabUrl" class="tab-content active">
         <div class="form-group">
           <label>URL receptu:</label>
@@ -42,7 +42,6 @@
         <div id="importStatus"></div>
       </div>
 
-      <!-- Tab: Manuální -->
       <div id="tabManual" class="tab-content">
         <div class="form-group">
           <label>Název receptu:</label>
@@ -58,6 +57,55 @@
         </div>
         <button id="btnSaveManual" class="btn btn-primary">Uložit recept</button>
       </div>
+    </div>
+  </div>
+
+  <!-- NOVÝ: Modal pro přehled receptů -->
+  <div id="modalRecipesList" class="modal">
+    <div class="modal-content modal-large">
+      <span class="close">&times;</span>
+      <h2>📋 Moje recepty</h2>
+      
+      <div class="recipes-controls">
+        <div class="form-group">
+          <input type="text" id="searchRecipes" placeholder="🔍 Hledat recept...">
+        </div>
+        <div class="form-group">
+          <label>Seřadit podle:</label>
+          <select id="sortRecipes">
+            <option value="rating">Hodnocení (nejvyšší)</option>
+            <option value="name">Názvu (A-Z)</option>
+            <option value="date">Data přidání (nejnovější)</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="recipesList" class="recipes-list">
+        <p class="loading">Načítám recepty...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOVÝ: Modal pro editaci receptu -->
+  <div id="modalEditRecipe" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>✏️ Upravit recept</h2>
+      
+      <div class="form-group">
+        <label>Název receptu:</label>
+        <input type="text" id="editRecipeName" placeholder="Kuřecí řízek">
+      </div>
+      <div class="form-group">
+        <label>Ingredience (každá na nový řádek):</label>
+        <textarea id="editRecipeIngredients" rows="5"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Postup přípravy:</label>
+        <textarea id="editRecipeInstructions" rows="6"></textarea>
+      </div>
+      <button id="btnSaveEdit" class="btn btn-primary">Uložit změny</button>
+      <button class="btn btn-secondary" onclick="closeModal(modalEditRecipe)">Zrušit</button>
     </div>
   </div>
 
