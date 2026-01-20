@@ -506,3 +506,116 @@ main {
   font-size: 14px;
   color: #bbb;
 }
+
+/* NOVÉ: Nákupní seznam */
+.shopping-actions {
+  margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.shopping-list {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.shopping-meal-section {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.shopping-meal-section:last-child {
+  border-bottom: none;
+}
+
+.shopping-meal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shopping-ingredients {
+  list-style: none;
+  padding: 0;
+}
+
+.shopping-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.2s;
+}
+
+.shopping-item:hover {
+  background: #f8f9fa;
+}
+
+.shopping-item:last-child {
+  border-bottom: none;
+}
+
+.shopping-checkbox {
+  width: 20px;
+  height: 20px;
+  margin-right: 12px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.shopping-item-text {
+  flex: 1;
+  font-size: 15px;
+  color: #333;
+  transition: all 0.2s;
+}
+
+.shopping-item.checked .shopping-item-text {
+  text-decoration: line-through;
+  color: #999;
+}
+
+.shopping-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.shopping-empty-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.shopping-empty-text {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.copy-success {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #28a745;
+  color: white;
+  padding: 15px 25px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  z-index: 10000;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

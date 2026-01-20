@@ -4,10 +4,12 @@ const mealPlanDiv = document.getElementById('mealPlan');
 const btnGenerateWeek = document.getElementById('btnGenerateWeek');
 const btnAddRecipe = document.getElementById('btnAddRecipe');
 const btnViewRecipes = document.getElementById('btnViewRecipes');
+const btnShoppingList = document.getElementById('btnShoppingList');
 const modalAddRecipe = document.getElementById('modalAddRecipe');
 const modalMealDetail = document.getElementById('modalMealDetail');
 const modalRecipesList = document.getElementById('modalRecipesList');
 const modalEditRecipe = document.getElementById('modalEditRecipe');
+const modalShoppingList = document.getElementById('modalShoppingList');
 const closeBtns = document.querySelectorAll('.close');
 const tabBtns = document.querySelectorAll('.tab-btn');
 
@@ -29,14 +31,19 @@ const editRecipeNameInput = document.getElementById('editRecipeName');
 const editRecipeIngredientsInput = document.getElementById('editRecipeIngredients');
 const editRecipeInstructionsInput = document.getElementById('editRecipeInstructions');
 
+const btnCopyList = document.getElementById('btnCopyList');
+const shoppingListContent = document.getElementById('shoppingListContent');
+
 let currentEditRecipeId = null;
 let allRecipes = [];
+let currentShoppingList = [];
 
 loadMealPlan();
 
 btnGenerateWeek.addEventListener('click', generateNewWeek);
 btnAddRecipe.addEventListener('click', () => openModal(modalAddRecipe));
 btnViewRecipes.addEventListener('click', showRecipesList);
+btnShoppingList.addEventListener('click', showShoppingList);
 
 closeBtns.forEach(btn => {
   btn.addEventListener('click', () => {
@@ -44,6 +51,7 @@ closeBtns.forEach(btn => {
     closeModal(modalMealDetail);
     closeModal(modalRecipesList);
     closeModal(modalEditRecipe);
+    closeModal(modalShoppingList);
   });
 });
 
@@ -57,6 +65,7 @@ tabBtns.forEach(btn => {
 btnImportUrl.addEventListener('click', importFromUrl);
 btnSaveManual.addEventListener('click', saveManualRecipe);
 btnSaveEdit.addEventListener('click', saveEditedRecipe);
+btnCopyList.addEventListener('click', copyShoppingList);
 
 searchRecipesInput.addEventListener('input', filterAndSortRecipes);
 sortRecipesSelect.addEventListener('change', filterAndSortRecipes);
@@ -66,6 +75,7 @@ window.addEventListener('click', (e) => {
   if (e.target === modalMealDetail) closeModal(modalMealDetail);
   if (e.target === modalRecipesList) closeModal(modalRecipesList);
   if (e.target === modalEditRecipe) closeModal(modalEditRecipe);
+  if (e.target === modalShoppingList) closeModal(modalShoppingList);
 });
 
 async function loadMealPlan() {
@@ -120,6 +130,146 @@ async function regenerateMeal(mealIndex) {
   } catch (error) {
     alert('Chyba při přegenerování: ' + error.message);
   }
+}
+
+async function showShoppingList() {
+  shoppingListContent.innerHTML = '<p class="loading">Načítám ingredience...</p>';
+  openModal(modalShoppingList);
+  
+  try {
+    const response = await fetch(`${API_URL}/meal-plan`);
+    const data = await response.json();
+    
+    if (!data.meals || data.meals.length === 0) {
+      shoppingListContent.innerHTML = `
+        <div class="shopping-empty">
+          <div class="shopping-empty-icon">📭</div>
+          <div class="shopping-empty-text">Žádný jídelníček</div>
+          <div class="empty-state-hint">Nejdřív vygeneruj týdenní plán</div>
+        </div>
+      `;
+      return;
+    }
+    
+    currentShoppingList = data.meals;
+    renderShoppingList(data.meals);
+  } catch (error) {
+    shoppingListContent.innerHTML = `<p class="loading error">Chyba: ${error.message}</p>`;
+  }
+}
+
+function renderShoppingList(meals) {
+  const html = meals.map((meal, index) => {
+    const dayLabel = index < 3 ? `${index + 1}. jídlo` : 'Alternativa';
+    
+    return `
+      <div class="shopping-meal-section">
+        <h3 class="shopping-meal-title">
+          <span>${dayLabel}</span>
+          <span style="color: #333; font-weight: normal;">— ${meal.recipe.name}</span>
+        </h3>
+        <ul class="shopping-ingredients">
+          ${meal.recipe.ingredients.map((ingredient, ingIndex) => `
+            <li class="shopping-item" id="item-${index}-${ingIndex}">
+              <input 
+                type="checkbox" 
+                class="shopping-checkbox"
+                onchange="toggleShoppingItem(${index}, ${ingIndex})"
+              >
+              <span class="shopping-item-text">${ingredient}</span>
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    `;
+  }).join('');
+  
+  shoppingListContent.innerHTML = html;
+}
+
+function toggleShoppingItem(mealIndex, ingredientIndex) {
+  const item = document.getElementById(`item-${mealIndex}-${ingredientIndex}`);
+  item.classList.toggle('checked');
+}
+
+async function copyShoppingList() {
+  try {
+    const response = await fetch(`${API_URL}/meal-plan`);
+    const data = await response.json();
+    
+    if (!data.meals || data.meals.length === 0) {
+      alert('Žádný jídelníček k zkopírování');
+      return;
+    }
+    
+    let text = '🛒 NÁKUPNÍ SEZNAM\n\n';
+    
+    data.meals.forEach((meal, index) => {
+      const dayLabel = index < 3 ? `${index + 1}. jídlo` : 'Alternativa';
+      text += `${dayLabel} — ${meal.recipe.name}\n`;
+      meal.recipe.ingredients.forEach(ing => {
+        text += `  • ${ing}\n`;
+      });
+      text += '\n';
+    });
+    
+    // Pokus o moderní clipboard API
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        showCopySuccess();
+        return;
+      } catch (e) {
+        // Pokud selže, zkus fallback
+      }
+    }
+    
+    // Fallback metoda
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.width = '2em';
+    textarea.style.height = '2em';
+    textarea.style.padding = '0';
+    textarea.style.border = 'none';
+    textarea.style.outline = 'none';
+    textarea.style.boxShadow = 'none';
+    textarea.style.background = 'transparent';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    
+    let success = false;
+    try {
+      success = document.execCommand('copy');
+    } catch (err) {
+      success = false;
+    }
+    
+    document.body.removeChild(textarea);
+    
+    if (success) {
+      showCopySuccess();
+    } else {
+      // Pokud ani fallback nefunguje, zobraz text
+      prompt('Zkopíruj tento text (Cmd+C):', text);
+    }
+  } catch (error) {
+    alert('Chyba: ' + error.message);
+  }
+}
+
+function showCopySuccess() {
+  const notification = document.createElement('div');
+  notification.className = 'copy-success';
+  notification.textContent = '✓ Zkopírováno do schránky!';
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.remove();
+  }, 2000);
 }
 
 async function importFromUrl() {
@@ -328,7 +478,7 @@ async function showRecipeDetail(recipeId) {
             : `<div class="notes-display empty" id="notesDisplay">Zatím žádné poznámky</div>`
           }
           <textarea id="notesInput" placeholder="Přidej poznámku...">${recipe.notes || ''}</textarea>
-          <button class="btn btn-primary btn-small save-notes-btn" onclick="saveNotes(${recipe.id})">
+          <button class="btn btn-primary btn-small save-notes-btn" onclick="saveNotes(${recipe.id}, event)">
             Uložit poznámky
           </button>
         </div>
@@ -520,7 +670,7 @@ function showMealDetail(index) {
               : `<div class="notes-display empty" id="notesDisplay">Zatím žádné poznámky</div>`
             }
             <textarea id="notesInput" placeholder="Přidej poznámku...">${meal.recipe.notes || ''}</textarea>
-            <button class="btn btn-primary btn-small save-notes-btn" onclick="saveNotes(${meal.recipe.id})">
+            <button class="btn btn-primary btn-small save-notes-btn" onclick="saveNotes(${meal.recipe.id}, event)">
               Uložit poznámky
             </button>
           </div>
@@ -534,7 +684,7 @@ function showMealDetail(index) {
     });
 }
 
-async function saveNotes(recipeId) {
+async function saveNotes(recipeId, event) {
   const notesInput = document.getElementById('notesInput');
   const notes = notesInput.value.trim();
   
@@ -600,3 +750,4 @@ window.saveNotes = saveNotes;
 window.showRecipeDetail = showRecipeDetail;
 window.editRecipe = editRecipe;
 window.deleteRecipe = deleteRecipe;
+window.toggleShoppingItem = toggleShoppingItem;

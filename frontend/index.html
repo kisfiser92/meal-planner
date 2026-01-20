@@ -12,6 +12,7 @@
       <h1>🍽️ Rodinný jídelníček</h1>
       <div class="header-actions">
         <button id="btnGenerateWeek" class="btn btn-primary">Vygenerovat nový týden</button>
+        <button id="btnShoppingList" class="btn btn-secondary">🛒 Nákupní seznam</button>
         <button id="btnViewRecipes" class="btn btn-secondary">📋 Moje recepty</button>
         <button id="btnAddRecipe" class="btn btn-secondary">➕ Přidat recept</button>
       </div>
@@ -60,7 +61,7 @@
     </div>
   </div>
 
-  <!-- NOVÝ: Modal pro přehled receptů -->
+  <!-- Modal pro přehled receptů -->
   <div id="modalRecipesList" class="modal">
     <div class="modal-content modal-large">
       <span class="close">&times;</span>
@@ -86,7 +87,23 @@
     </div>
   </div>
 
-  <!-- NOVÝ: Modal pro editaci receptu -->
+  <!-- NOVÝ: Modal pro nákupní seznam -->
+  <div id="modalShoppingList" class="modal">
+    <div class="modal-content modal-large">
+      <span class="close">&times;</span>
+      <h2>🛒 Nákupní seznam na tento týden</h2>
+      
+      <div class="shopping-actions">
+        <button id="btnCopyList" class="btn btn-secondary btn-small">📋 Kopírovat seznam</button>
+      </div>
+
+      <div id="shoppingListContent" class="shopping-list">
+        <p class="loading">Načítám ingredience...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal pro editaci receptu -->
   <div id="modalEditRecipe" class="modal">
     <div class="modal-content">
       <span class="close">&times;</span>
