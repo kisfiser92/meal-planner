@@ -41,6 +41,21 @@ async function initDatabase() {
       used_at DATE,
       FOREIGN KEY (recipe_id) REFERENCES recipes(id)
     );
+
+    CREATE TABLE IF NOT EXISTS tags (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      category TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS recipe_tags (
+      recipe_id INTEGER NOT NULL,
+      tag_id INTEGER NOT NULL,
+      PRIMARY KEY (recipe_id, tag_id),
+      FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE,
+      FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+    );
   `);
   
   saveDatabase();
@@ -179,6 +194,73 @@ const historyDb = {
   }
 };
 
+const tagDb = {
+  getAll: () => {
+    return querySQL('SELECT * FROM tags ORDER BY category, name');
+  },
+
+  getById: (id) => {
+    return queryOneSQL('SELECT * FROM tags WHERE id = ?', [id]);
+  },
+
+  create: (name, category) => {
+    runSQL(
+      'INSERT INTO tags (name, category) VALUES (?, ?)',
+      [name, category]
+    );
+    const result = queryOneSQL('SELECT last_insert_rowid() as id');
+    return result.id;
+  },
+
+  update: (id, name, category) => {
+    runSQL(
+      'UPDATE tags SET name = ?, category = ? WHERE id = ?',
+      [name, category, id]
+    );
+  },
+
+  delete: (id) => {
+    runSQL('DELETE FROM tags WHERE id = ?', [id]);
+  },
+
+  getByRecipeId: (recipeId) => {
+    return querySQL(
+      `SELECT t.* FROM tags t
+       INNER JOIN recipe_tags rt ON t.id = rt.tag_id
+       WHERE rt.recipe_id = ?
+       ORDER BY t.category, t.name`,
+      [recipeId]
+    );
+  },
+
+  addToRecipe: (recipeId, tagId) => {
+    runSQL(
+      'INSERT OR IGNORE INTO recipe_tags (recipe_id, tag_id) VALUES (?, ?)',
+      [recipeId, tagId]
+    );
+  },
+
+  removeFromRecipe: (recipeId, tagId) => {
+    runSQL(
+      'DELETE FROM recipe_tags WHERE recipe_id = ? AND tag_id = ?',
+      [recipeId, tagId]
+    );
+  },
+
+  setRecipeTags: (recipeId, tagIds) => {
+    // Nejdřív smaž všechny existující tagy pro tento recept
+    runSQL('DELETE FROM recipe_tags WHERE recipe_id = ?', [recipeId]);
+
+    // Pak přidej nové
+    tagIds.forEach(tagId => {
+      runSQL(
+        'INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?, ?)',
+        [recipeId, tagId]
+      );
+    });
+  }
+};
+
 function getMonday(date) {
   const d = new Date(date);
   const day = d.getDay();
@@ -192,6 +274,7 @@ module.exports = {
   recipeDb,
   mealPlanDb,
   historyDb,
+  tagDb,
   getMonday
 };
 
