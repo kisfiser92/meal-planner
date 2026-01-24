@@ -37,6 +37,7 @@ const shoppingListContent = document.getElementById('shoppingListContent');
 let currentEditRecipeId = null;
 let allRecipes = [];
 let currentShoppingList = [];
+let currentMealPlan = [];
 
 loadMealPlan();
 
@@ -88,6 +89,7 @@ async function loadMealPlan() {
       return;
     }
     
+    currentMealPlan = data.meals;
     renderMealPlan(data.meals);
   } catch (error) {
     mealPlanDiv.innerHTML = `<p class="loading error">Chyba načítání: ${error.message}</p>`;
@@ -95,6 +97,14 @@ async function loadMealPlan() {
 }
 
 async function generateNewWeek() {
+  const hasLocked = currentMealPlan.some(m => m.locked);
+  
+  if (hasLocked) {
+    if (!confirm('Opravdu chceš vygenerovat nový týden? Zamknutá jídla zůstanou.')) {
+      return;
+    }
+  }
+  
   btnGenerateWeek.disabled = true;
   btnGenerateWeek.textContent = 'Generuji...';
   
@@ -103,6 +113,7 @@ async function generateNewWeek() {
       method: 'POST'
     });
     const data = await response.json();
+    currentMealPlan = data.meals;
     renderMealPlan(data.meals);
   } catch (error) {
     alert('Chyba při generování: ' + error.message);
@@ -112,7 +123,62 @@ async function generateNewWeek() {
   }
 }
 
+async function toggleLock(mealIndex) {
+  const meal = currentMealPlan[mealIndex];
+  const newLockState = !meal.locked;
+  
+  try {
+    const response = await fetch(`${API_URL}/meal-plan/lock`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        mealIndex, 
+        locked: newLockState 
+      })
+    });
+    
+    if (response.ok) {
+      meal.locked = newLockState;
+      renderMealPlan(currentMealPlan);
+    }
+  } catch (error) {
+    alert('Chyba při zamykání: ' + error.message);
+  }
+}
+
+async function unlockAll() {
+  if (!confirm('Odemknout všechna jídla?')) {
+    return;
+  }
+  
+  try {
+    for (let i = 0; i < currentMealPlan.length; i++) {
+      if (currentMealPlan[i].locked) {
+        await fetch(`${API_URL}/meal-plan/lock`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            mealIndex: i, 
+            locked: false 
+          })
+        });
+      }
+    }
+    
+    await loadMealPlan();
+  } catch (error) {
+    alert('Chyba při odemykání: ' + error.message);
+  }
+}
+
 async function regenerateMeal(mealIndex) {
+  const meal = currentMealPlan[mealIndex];
+  
+  if (meal.locked) {
+    alert('Toto jídlo je zamknuté. Nejdřív ho odemkni.');
+    return;
+  }
+  
   try {
     const response = await fetch(`${API_URL}/meal-plan/regenerate`, {
       method: 'POST',
@@ -131,6 +197,203 @@ async function regenerateMeal(mealIndex) {
     alert('Chyba při přegenerování: ' + error.message);
   }
 }
+
+function renderMealPlan(meals) {
+  const hasLocked = meals.some(m => m.locked);
+  
+  const unlockBtn = hasLocked 
+    ? '<button class="btn btn-secondary btn-small unlock-all-btn" onclick="unlockAll()">🔓 Odemknout vše</button>'
+    : '';
+  
+  const html = `
+    <div style="margin-bottom: 20px; display: flex; align-items: center;">
+      <div style="flex: 1;"></div>
+      ${unlockBtn}
+    </div>
+    <div class="meal-grid">
+      ${meals.map((meal, index) => {
+        const dayLabel = index < 3 ? `${index + 1}. jídlo` : 'Alternativa';
+        const lockedClass = meal.locked ? 'locked' : '';
+        const lockIcon = meal.locked ? '🔒' : '🔓';
+        const lockClass = meal.locked ? 'locked' : 'unlocked';
+        
+        return `
+          <div class="meal-card ${lockedClass}">
+            <h3>
+              ${dayLabel}
+              ${meal.locked ? '<span class="locked-badge">Zamknuto</span>' : ''}
+            </h3>
+            <h2>${meal.recipe.name}</h2>
+            ${renderStars(meal.recipe.rating || 0, meal.recipe.id, true)}
+            <div class="ingredients-preview">
+              ${meal.recipe.ingredients.slice(0, 3).join(', ')}${meal.recipe.ingredients.length > 3 ? '...' : ''}
+            </div>
+            <div class="actions">
+              <button class="btn btn-small btn-secondary" onclick="showMealDetail(${index})">
+                Zobrazit detail
+              </button>
+              <span class="lock-icon ${lockClass}" onclick="toggleLock(${index})" title="${meal.locked ? 'Odemknout' : 'Zamknout'}">
+                ${lockIcon}
+              </span>
+              <button class="btn btn-small btn-icon" onclick="regenerateMeal(${index})" title="Vygenerovat jiné jídlo">
+                🔄
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+  
+  mealPlanDiv.innerHTML = html;
+}
+
+function renderStars(rating, recipeId, isCard = false) {
+  const stars = [];
+  for (let i = 1; i <= 5; i++) {
+    const filled = i <= rating ? 'filled' : '';
+    stars.push(`<span class="star ${filled}" data-rating="${i}" data-recipe="${recipeId}" onclick="setRating(${recipeId}, ${i})">★</span>`);
+  }
+  
+  return `
+    <div class="rating ${isCard ? 'rating-card' : ''}">
+      <div class="stars">
+        ${stars.join('')}
+      </div>
+    </div>
+  `;
+}
+
+async function setRating(recipeId, rating) {
+  try {
+    const response = await fetch(`${API_URL}/recipes/${recipeId}/rating`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating })
+    });
+    
+    if (response.ok) {
+      const stars = document.querySelectorAll(`.star[data-recipe="${recipeId}"]`);
+      stars.forEach(star => {
+        const starRating = parseInt(star.dataset.rating);
+        if (starRating <= rating) {
+          star.classList.add('filled');
+        } else {
+          star.classList.remove('filled');
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Chyba při ukládání hodnocení:', error);
+    alert('Chyba při ukládání hodnocení');
+  }
+}
+
+function showMealDetail(index) {
+  fetch(`${API_URL}/meal-plan`)
+    .then(res => res.json())
+    .then(data => {
+      const meal = data.meals[index];
+      const html = `
+        <div class="meal-detail">
+          <h2>${meal.recipe.name}</h2>
+          
+          ${renderStars(meal.recipe.rating || 0, meal.recipe.id)}
+          
+          <h3>Ingredience</h3>
+          <ul>
+            ${meal.recipe.ingredients.map(ing => `<li>${ing}</li>`).join('')}
+          </ul>
+          
+          <h3>Postup přípravy</h3>
+          <p>${meal.recipe.instructions}</p>
+          
+          <div class="notes-section">
+            <h3>📝 Poznámky</h3>
+            ${meal.recipe.notes 
+              ? `<div class="notes-display" id="notesDisplay">${meal.recipe.notes}</div>` 
+              : `<div class="notes-display empty" id="notesDisplay">Zatím žádné poznámky</div>`
+            }
+            <textarea id="notesInput" placeholder="Přidej poznámku...">${meal.recipe.notes || ''}</textarea>
+            <button class="btn btn-primary btn-small save-notes-btn" onclick="saveNotes(${meal.recipe.id}, event)">
+              Uložit poznámky
+            </button>
+          </div>
+          
+          ${meal.recipe.source ? `<p style="margin-top: 20px; font-size: 13px; color: #999;">Zdroj: ${meal.recipe.source}</p>` : ''}
+        </div>
+      `;
+      
+      document.getElementById('mealDetailContent').innerHTML = html;
+      openModal(modalMealDetail);
+    });
+}
+
+async function saveNotes(recipeId, event) {
+  const notesInput = document.getElementById('notesInput');
+  const notes = notesInput.value.trim();
+  
+  try {
+    const response = await fetch(`${API_URL}/recipes/${recipeId}/notes`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes })
+    });
+    
+    if (response.ok) {
+      const notesDisplay = document.getElementById('notesDisplay');
+      if (notes) {
+        notesDisplay.textContent = notes;
+        notesDisplay.classList.remove('empty');
+      } else {
+        notesDisplay.textContent = 'Zatím žádné poznámky';
+        notesDisplay.classList.add('empty');
+      }
+      
+      notesInput.value = '';
+      
+      const btn = event.target;
+      const originalText = btn.textContent;
+      btn.textContent = '✓ Uloženo';
+      btn.style.background = '#28a745';
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.background = '';
+      }, 1500);
+    }
+  } catch (error) {
+    alert('Chyba při ukládání poznámek: ' + error.message);
+  }
+}
+
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+  
+  document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+  document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
+}
+
+function showImportStatus(message, type) {
+  importStatus.textContent = message;
+  importStatus.className = type;
+  importStatus.style.display = 'block';
+}
+
+function openModal(modal) {
+  modal.classList.add('active');
+}
+
+function closeModal(modal) {
+  modal.classList.remove('active');
+}
+
+window.showMealDetail = showMealDetail;
+window.regenerateMeal = regenerateMeal;
+window.setRating = setRating;
+window.saveNotes = saveNotes;
+window.toggleLock = toggleLock;
+window.unlockAll = unlockAll;
 
 async function showShoppingList() {
   shoppingListContent.innerHTML = '<p class="loading">Načítám ingredience...</p>';
@@ -167,6 +430,7 @@ function renderShoppingList(meals) {
         <h3 class="shopping-meal-title">
           <span>${dayLabel}</span>
           <span style="color: #333; font-weight: normal;">— ${meal.recipe.name}</span>
+          ${meal.locked ? '<span class="locked-badge">🔒 Zamknuto</span>' : ''}
         </h3>
         <ul class="shopping-ingredients">
           ${meal.recipe.ingredients.map((ingredient, ingIndex) => `
@@ -213,18 +477,14 @@ async function copyShoppingList() {
       text += '\n';
     });
     
-    // Pokus o moderní clipboard API
     if (navigator.clipboard && navigator.clipboard.writeText) {
       try {
         await navigator.clipboard.writeText(text);
         showCopySuccess();
         return;
-      } catch (e) {
-        // Pokud selže, zkus fallback
-      }
+      } catch (e) {}
     }
     
-    // Fallback metoda
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.style.position = 'fixed';
@@ -253,7 +513,6 @@ async function copyShoppingList() {
     if (success) {
       showCopySuccess();
     } else {
-      // Pokud ani fallback nefunguje, zobraz text
       prompt('Zkopíruj tento text (Cmd+C):', text);
     }
   } catch (error) {
@@ -573,180 +832,6 @@ async function deleteRecipe(recipeId, recipeName) {
   }
 }
 
-function renderMealPlan(meals) {
-  const html = `
-    <div class="meal-grid">
-      ${meals.map((meal, index) => {
-        const dayLabel = index < 3 ? `${index + 1}. jídlo` : 'Alternativa';
-        return `
-          <div class="meal-card">
-            <h3>${dayLabel}</h3>
-            <h2>${meal.recipe.name}</h2>
-            ${renderStars(meal.recipe.rating || 0, meal.recipe.id, true)}
-            <div class="ingredients-preview">
-              ${meal.recipe.ingredients.slice(0, 3).join(', ')}${meal.recipe.ingredients.length > 3 ? '...' : ''}
-            </div>
-            <div class="actions">
-              <button class="btn btn-small btn-secondary" onclick="showMealDetail(${index})">
-                Zobrazit detail
-              </button>
-              <button class="btn btn-small btn-icon" onclick="regenerateMeal(${index})" title="Vygenerovat jiné jídlo">
-                🔄
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `;
-  
-  mealPlanDiv.innerHTML = html;
-}
-
-function renderStars(rating, recipeId, isCard = false) {
-  const stars = [];
-  for (let i = 1; i <= 5; i++) {
-    const filled = i <= rating ? 'filled' : '';
-    stars.push(`<span class="star ${filled}" data-rating="${i}" data-recipe="${recipeId}" onclick="setRating(${recipeId}, ${i})">★</span>`);
-  }
-  
-  return `
-    <div class="rating ${isCard ? 'rating-card' : ''}">
-      <div class="stars">
-        ${stars.join('')}
-      </div>
-    </div>
-  `;
-}
-
-async function setRating(recipeId, rating) {
-  try {
-    const response = await fetch(`${API_URL}/recipes/${recipeId}/rating`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rating })
-    });
-    
-    if (response.ok) {
-      const stars = document.querySelectorAll(`.star[data-recipe="${recipeId}"]`);
-      stars.forEach(star => {
-        const starRating = parseInt(star.dataset.rating);
-        if (starRating <= rating) {
-          star.classList.add('filled');
-        } else {
-          star.classList.remove('filled');
-        }
-      });
-    }
-  } catch (error) {
-    console.error('Chyba při ukládání hodnocení:', error);
-    alert('Chyba při ukládání hodnocení');
-  }
-}
-
-function showMealDetail(index) {
-  fetch(`${API_URL}/meal-plan`)
-    .then(res => res.json())
-    .then(data => {
-      const meal = data.meals[index];
-      const html = `
-        <div class="meal-detail">
-          <h2>${meal.recipe.name}</h2>
-          
-          ${renderStars(meal.recipe.rating || 0, meal.recipe.id)}
-          
-          <h3>Ingredience</h3>
-          <ul>
-            ${meal.recipe.ingredients.map(ing => `<li>${ing}</li>`).join('')}
-          </ul>
-          
-          <h3>Postup přípravy</h3>
-          <p>${meal.recipe.instructions}</p>
-          
-          <div class="notes-section">
-            <h3>📝 Poznámky</h3>
-            ${meal.recipe.notes 
-              ? `<div class="notes-display" id="notesDisplay">${meal.recipe.notes}</div>` 
-              : `<div class="notes-display empty" id="notesDisplay">Zatím žádné poznámky</div>`
-            }
-            <textarea id="notesInput" placeholder="Přidej poznámku...">${meal.recipe.notes || ''}</textarea>
-            <button class="btn btn-primary btn-small save-notes-btn" onclick="saveNotes(${meal.recipe.id}, event)">
-              Uložit poznámky
-            </button>
-          </div>
-          
-          ${meal.recipe.source ? `<p style="margin-top: 20px; font-size: 13px; color: #999;">Zdroj: ${meal.recipe.source}</p>` : ''}
-        </div>
-      `;
-      
-      document.getElementById('mealDetailContent').innerHTML = html;
-      openModal(modalMealDetail);
-    });
-}
-
-async function saveNotes(recipeId, event) {
-  const notesInput = document.getElementById('notesInput');
-  const notes = notesInput.value.trim();
-  
-  try {
-    const response = await fetch(`${API_URL}/recipes/${recipeId}/notes`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes })
-    });
-    
-    if (response.ok) {
-      const notesDisplay = document.getElementById('notesDisplay');
-      if (notes) {
-        notesDisplay.textContent = notes;
-        notesDisplay.classList.remove('empty');
-      } else {
-        notesDisplay.textContent = 'Zatím žádné poznámky';
-        notesDisplay.classList.add('empty');
-      }
-      
-      notesInput.value = '';
-      
-      const btn = event.target;
-      const originalText = btn.textContent;
-      btn.textContent = '✓ Uloženo';
-      btn.style.background = '#28a745';
-      setTimeout(() => {
-        btn.textContent = originalText;
-        btn.style.background = '';
-      }, 1500);
-    }
-  } catch (error) {
-    alert('Chyba při ukládání poznámek: ' + error.message);
-  }
-}
-
-function switchTab(tabName) {
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-  
-  document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-  document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
-}
-
-function showImportStatus(message, type) {
-  importStatus.textContent = message;
-  importStatus.className = type;
-  importStatus.style.display = 'block';
-}
-
-function openModal(modal) {
-  modal.classList.add('active');
-}
-
-function closeModal(modal) {
-  modal.classList.remove('active');
-}
-
-window.showMealDetail = showMealDetail;
-window.regenerateMeal = regenerateMeal;
-window.setRating = setRating;
-window.saveNotes = saveNotes;
 window.showRecipeDetail = showRecipeDetail;
 window.editRecipe = editRecipe;
 window.deleteRecipe = deleteRecipe;

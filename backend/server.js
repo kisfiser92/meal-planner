@@ -108,24 +108,37 @@ app.get('/api/meal-plan', (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 // POST: Vygeneruj nový týdenní plán
 app.post('/api/meal-plan/generate', (req, res) => {
   try {
     const monday = getMonday(new Date());
-    const meals = generator.generateWeekPlan(4);
-    
-    // Přepiš existující plán
     const existing = mealPlanDb.getCurrent();
+    
+    // Získej zamknutá jídla z existujícího plánu
+    let lockedMeals = [];
+    if (existing) {
+      const currentMeals = JSON.parse(existing.meals);
+      lockedMeals = currentMeals.map((meal, index) => ({
+        index,
+        locked: meal.locked || false,
+        recipeId: meal.recipeId,
+        recipe: meal.recipe
+      }));
+    }
+    
+    const meals = generator.generateWeekPlan(4, lockedMeals);
+    
     if (existing) {
       mealPlanDb.update(monday, meals);
     } else {
       mealPlanDb.create(monday, meals);
     }
 
-    // Ulož do historie
+    // Ulož do historie pouze NEzamknutá jídla
     meals.forEach(m => {
-      historyDb.add(m.recipeId, monday);
+      if (!m.locked) {
+        historyDb.add(m.recipeId, monday);
+      }
     });
 
     res.json({ meals });
@@ -230,6 +243,33 @@ app.delete('/api/recipes/:id', (req, res) => {
     const { id } = req.params;
     recipeDb.delete(id);
     res.json({ message: 'Recept smazán' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PATCH: Zamkni/odemkni jídlo v jídelníčku
+app.patch('/api/meal-plan/lock', (req, res) => {
+  try {
+    const { mealIndex, locked } = req.body;
+    const monday = getMonday(new Date());
+    const plan = mealPlanDb.getCurrent();
+    
+    if (!plan) {
+      return res.status(404).json({ error: 'Jídelníček neexistuje' });
+    }
+
+    const meals = JSON.parse(plan.meals);
+    
+    if (mealIndex < 0 || mealIndex >= meals.length) {
+      return res.status(400).json({ error: 'Neplatný index jídla' });
+    }
+    
+    meals[mealIndex].locked = locked;
+    
+    mealPlanDb.update(monday, meals);
+    
+    res.json({ message: 'Zámek aktualizován', meal: meals[mealIndex] });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
