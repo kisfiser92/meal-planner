@@ -13,18 +13,13 @@ class MealGenerator {
   selectRecipe(excludeIds = []) {
     const allRecipes = recipeDb.getAll();
     let available = allRecipes.filter(r => !excludeIds.includes(r.id));
-    
+
     if (available.length === 0) return null;
 
     const notRecent = available.filter(r => !this.usedRecently.has(r.id));
     let pool = notRecent.length > 0 ? notRecent : available;
 
-    // Preferuj lépe hodnocené recepty (rating 4-5)
-    const highRated = pool.filter(r => r.rating >= 4);
-    if (highRated.length > 0 && Math.random() > 0.3) {
-      pool = highRated;
-    }
-
+    // Hodnocení je dočasně vypnuté, vybíráme náhodně
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
