@@ -398,17 +398,39 @@ main {
   max-width: 800px;
 }
 
+.recipes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.recipes-header h2 {
+  margin: 0;
+}
+
 .recipes-controls {
   display: flex;
   gap: 15px;
   margin-bottom: 20px;
   flex-wrap: wrap;
+  align-items: flex-end;
 }
 
 .recipes-controls .form-group {
-  flex: 1;
-  min-width: 200px;
   margin-bottom: 0;
+}
+
+.recipes-controls .search-group {
+  flex: 2;
+  min-width: 200px;
+}
+
+.recipes-controls .sort-group {
+  flex: 1;
+  min-width: 180px;
 }
 
 .recipes-controls select {

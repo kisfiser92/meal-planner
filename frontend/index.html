@@ -14,7 +14,6 @@
         <button id="btnGenerateWeek" class="btn btn-primary">Vygenerovat nový týden</button>
         <button id="btnShoppingList" class="btn btn-secondary">🛒 Nákupní seznam</button>
         <button id="btnViewRecipes" class="btn btn-secondary">📋 Moje recepty</button>
-        <button id="btnAddRecipe" class="btn btn-secondary">➕ Přidat recept</button>
       </div>
     </header>
 
@@ -65,16 +64,19 @@
   <div id="modalRecipesList" class="modal">
     <div class="modal-content modal-large">
       <span class="close">&times;</span>
-      <h2>📋 Moje recepty</h2>
-      
+
+      <div class="recipes-header">
+        <h2>📋 Moje recepty</h2>
+        <button id="btnAddRecipeModal" class="btn btn-primary">➕ Přidat recept</button>
+      </div>
+
       <div class="recipes-controls">
-        <div class="form-group">
+        <div class="form-group search-group">
           <input type="text" id="searchRecipes" placeholder="🔍 Hledat recept...">
         </div>
-        <div class="form-group">
+        <div class="form-group sort-group">
           <label>Seřadit podle:</label>
           <select id="sortRecipes">
-            <option value="rating">Hodnocení (nejvyšší)</option>
             <option value="name">Názvu (A-Z)</option>
             <option value="date">Data přidání (nejnovější)</option>
           </select>

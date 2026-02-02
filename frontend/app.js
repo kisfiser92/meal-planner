@@ -2,7 +2,6 @@ const API_URL = 'http://localhost:3000/api';
 
 const mealPlanDiv = document.getElementById('mealPlan');
 const btnGenerateWeek = document.getElementById('btnGenerateWeek');
-const btnAddRecipe = document.getElementById('btnAddRecipe');
 const btnViewRecipes = document.getElementById('btnViewRecipes');
 const btnShoppingList = document.getElementById('btnShoppingList');
 const modalAddRecipe = document.getElementById('modalAddRecipe');
@@ -12,6 +11,7 @@ const modalEditRecipe = document.getElementById('modalEditRecipe');
 const modalShoppingList = document.getElementById('modalShoppingList');
 const closeBtns = document.querySelectorAll('.close');
 const tabBtns = document.querySelectorAll('.tab-btn');
+const btnAddRecipeModal = document.getElementById('btnAddRecipeModal');
 
 const btnImportUrl = document.getElementById('btnImportUrl');
 const recipeUrlInput = document.getElementById('recipeUrl');
@@ -42,9 +42,12 @@ let currentMealPlan = [];
 loadMealPlan();
 
 btnGenerateWeek.addEventListener('click', generateNewWeek);
-btnAddRecipe.addEventListener('click', () => openModal(modalAddRecipe));
 btnViewRecipes.addEventListener('click', showRecipesList);
 btnShoppingList.addEventListener('click', showShoppingList);
+btnAddRecipeModal.addEventListener('click', () => {
+  closeModal(modalRecipesList);
+  openModal(modalAddRecipe);
+});
 
 closeBtns.forEach(btn => {
   btn.addEventListener('click', () => {
@@ -224,7 +227,6 @@ function renderMealPlan(meals) {
               ${meal.locked ? '<span class="locked-badge">Zamknuto</span>' : ''}
             </h3>
             <h2>${meal.recipe.name}</h2>
-            ${renderStars(meal.recipe.rating || 0, meal.recipe.id, true)}
             <div class="ingredients-preview">
               ${meal.recipe.ingredients.slice(0, 3).join(', ')}${meal.recipe.ingredients.length > 3 ? '...' : ''}
             </div>
@@ -297,21 +299,19 @@ function showMealDetail(index) {
       const html = `
         <div class="meal-detail">
           <h2>${meal.recipe.name}</h2>
-          
-          ${renderStars(meal.recipe.rating || 0, meal.recipe.id)}
-          
+
           <h3>Ingredience</h3>
           <ul>
             ${meal.recipe.ingredients.map(ing => `<li>${ing}</li>`).join('')}
           </ul>
-          
+
           <h3>Postup přípravy</h3>
           <p>${meal.recipe.instructions}</p>
-          
+
           <div class="notes-section">
             <h3>📝 Poznámky</h3>
-            ${meal.recipe.notes 
-              ? `<div class="notes-display" id="notesDisplay">${meal.recipe.notes}</div>` 
+            ${meal.recipe.notes
+              ? `<div class="notes-display" id="notesDisplay">${meal.recipe.notes}</div>`
               : `<div class="notes-display empty" id="notesDisplay">Zatím žádné poznámky</div>`
             }
             <textarea id="notesInput" placeholder="Přidej poznámku...">${meal.recipe.notes || ''}</textarea>
@@ -319,11 +319,11 @@ function showMealDetail(index) {
               Uložit poznámky
             </button>
           </div>
-          
+
           ${meal.recipe.source ? `<p style="margin-top: 20px; font-size: 13px; color: #999;">Zdroj: ${meal.recipe.source}</p>` : ''}
         </div>
       `;
-      
+
       document.getElementById('mealDetailContent').innerHTML = html;
       openModal(modalMealDetail);
     });
@@ -637,22 +637,20 @@ async function showRecipesList() {
 function filterAndSortRecipes() {
   const searchTerm = searchRecipesInput.value.toLowerCase();
   const sortBy = sortRecipesSelect.value;
-  
-  let filtered = allRecipes.filter(recipe => 
+
+  let filtered = allRecipes.filter(recipe =>
     recipe.name.toLowerCase().includes(searchTerm)
   );
-  
+
   filtered.sort((a, b) => {
-    if (sortBy === 'rating') {
-      return (b.rating || 0) - (a.rating || 0);
-    } else if (sortBy === 'name') {
+    if (sortBy === 'name') {
       return a.name.localeCompare(b.name, 'cs');
     } else if (sortBy === 'date') {
       return new Date(b.created_at) - new Date(a.created_at);
     }
     return 0;
   });
-  
+
   renderRecipesList(filtered);
 }
 
@@ -672,9 +670,6 @@ function renderRecipesList(recipes) {
     <div class="recipe-item">
       <div class="recipe-item-header">
         <h3 class="recipe-item-title">${recipe.name}</h3>
-        <div class="recipe-item-rating">
-          ${renderStarsStatic(recipe.rating || 0)}
-        </div>
       </div>
       <div class="recipe-item-actions">
         <button class="btn btn-small btn-secondary" onclick="showRecipeDetail(${recipe.id})">
@@ -719,21 +714,19 @@ async function showRecipeDetail(recipeId) {
     const html = `
       <div class="meal-detail">
         <h2>${recipe.name}</h2>
-        
-        ${renderStars(recipe.rating || 0, recipe.id)}
-        
+
         <h3>Ingredience</h3>
         <ul>
           ${recipe.ingredients.map(ing => `<li>${ing}</li>`).join('')}
         </ul>
-        
+
         <h3>Postup přípravy</h3>
         <p>${recipe.instructions}</p>
-        
+
         <div class="notes-section">
           <h3>📝 Poznámky</h3>
-          ${recipe.notes 
-            ? `<div class="notes-display" id="notesDisplay">${recipe.notes}</div>` 
+          ${recipe.notes
+            ? `<div class="notes-display" id="notesDisplay">${recipe.notes}</div>`
             : `<div class="notes-display empty" id="notesDisplay">Zatím žádné poznámky</div>`
           }
           <textarea id="notesInput" placeholder="Přidej poznámku...">${recipe.notes || ''}</textarea>
@@ -741,11 +734,11 @@ async function showRecipeDetail(recipeId) {
             Uložit poznámky
           </button>
         </div>
-        
+
         ${recipe.source ? `<p style="margin-top: 20px; font-size: 13px; color: #999;">Zdroj: ${recipe.source}</p>` : ''}
       </div>
     `;
-    
+
     document.getElementById('mealDetailContent').innerHTML = html;
     closeModal(modalRecipesList);
     openModal(modalMealDetail);
