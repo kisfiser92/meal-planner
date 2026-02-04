@@ -14,6 +14,7 @@
         <button id="btnGenerateWeek" class="btn btn-primary">Vygenerovat nový týden</button>
         <button id="btnShoppingList" class="btn btn-secondary">🛒 Nákupní seznam</button>
         <button id="btnViewRecipes" class="btn btn-secondary">📋 Moje recepty</button>
+        <button id="btnManageTags" class="btn btn-secondary">🏷️ Správa štítků</button>
       </div>
     </header>
 
@@ -55,6 +56,12 @@
           <label>Postup přípravy:</label>
           <textarea id="recipeInstructions" rows="6" placeholder="1. Nakrájej maso..."></textarea>
         </div>
+        <div class="form-group">
+          <label>Štítky:</label>
+          <div id="recipeTagsSelect" class="tags-select">
+            <p class="loading">Načítám štítky...</p>
+          </div>
+        </div>
         <button id="btnSaveManual" class="btn btn-primary">Uložit recept</button>
       </div>
     </div>
@@ -80,6 +87,12 @@
             <option value="name">Názvu (A-Z)</option>
             <option value="date">Data přidání (nejnovější)</option>
           </select>
+        </div>
+        <div class="form-group">
+          <label>Filtrovat podle štítků:</label>
+          <div id="filterTagsSelect" class="tags-filter">
+            <p class="loading">Načítám štítky...</p>
+          </div>
         </div>
       </div>
 
@@ -110,7 +123,7 @@
     <div class="modal-content">
       <span class="close">&times;</span>
       <h2>✏️ Upravit recept</h2>
-      
+
       <div class="form-group">
         <label>Název receptu:</label>
         <input type="text" id="editRecipeName" placeholder="Kuřecí řízek">
@@ -123,8 +136,41 @@
         <label>Postup přípravy:</label>
         <textarea id="editRecipeInstructions" rows="6"></textarea>
       </div>
+      <div class="form-group">
+        <label>Štítky:</label>
+        <div id="editRecipeTagsSelect" class="tags-select">
+          <p class="loading">Načítám štítky...</p>
+        </div>
+      </div>
       <button id="btnSaveEdit" class="btn btn-primary">Uložit změny</button>
       <button class="btn btn-secondary" onclick="closeModal(modalEditRecipe)">Zrušit</button>
+    </div>
+  </div>
+
+  <!-- Modal pro správu tagů -->
+  <div id="modalManageTags" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>🏷️ Správa štítků</h2>
+
+      <div class="form-group">
+        <label>Název štítku:</label>
+        <input type="text" id="tagName" placeholder="Např. Vegetariánské">
+      </div>
+      <div class="form-group">
+        <label>Kategorie:</label>
+        <select id="tagCategory">
+          <option value="">Vyber kategorii...</option>
+          <option value="type">Typ jídla</option>
+          <option value="time">Časová náročnost</option>
+        </select>
+      </div>
+      <button id="btnSaveTag" class="btn btn-primary">Přidat štítek</button>
+
+      <h3 style="margin-top: 30px;">Existující štítky</h3>
+      <div id="tagsList" class="tags-list">
+        <p class="loading">Načítám štítky...</p>
+      </div>
     </div>
   </div>
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { initDatabase, recipeDb, mealPlanDb, historyDb, getMonday } = require('./database');
+const { initDatabase, recipeDb, mealPlanDb, historyDb, tagDb, getMonday } = require('./database');
 const generator = require('./generator');
 const RecipeScraper = require('./scraper');
 
@@ -21,14 +21,31 @@ initDatabase();
 
 // === API ENDPOINTS ===
 
-// GET: Načti všechny recepty
+// GET: Načti všechny recepty (s volitelným filtrováním podle tagů)
 app.get('/api/recipes', (req, res) => {
   try {
-    const recipes = recipeDb.getAll().map(r => ({
+    const { tagIds } = req.query;
+    let recipes = recipeDb.getAll();
+
+    // Přidej tagy ke každému receptu
+    recipes = recipes.map(r => ({
       ...r,
       ingredients: JSON.parse(r.ingredients),
-      tags: JSON.parse(r.tags || '[]')
+      tags: tagDb.getByRecipeId(r.id)
     }));
+
+    // Filtrování podle tagů, pokud jsou zadány
+    if (tagIds) {
+      const filterTagIds = Array.isArray(tagIds) ? tagIds : [tagIds];
+      const filterTagIdNumbers = filterTagIds.map(id => parseInt(id));
+
+      recipes = recipes.filter(recipe => {
+        const recipeTagIds = recipe.tags.map(t => t.id);
+        // Recept musí mít všechny požadované tagy
+        return filterTagIdNumbers.every(tagId => recipeTagIds.includes(tagId));
+      });
+    }
+
     res.json(recipes);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -270,6 +287,104 @@ app.patch('/api/meal-plan/lock', (req, res) => {
     mealPlanDb.update(monday, meals);
     
     res.json({ message: 'Zámek aktualizován', meal: meals[mealIndex] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// === TAGY ===
+
+// GET: Načti všechny tagy
+app.get('/api/tags', (req, res) => {
+  try {
+    const tags = tagDb.getAll();
+    res.json(tags);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST: Vytvoř nový tag
+app.post('/api/tags', (req, res) => {
+  try {
+    const { name, category } = req.body;
+
+    if (!name || !category) {
+      return res.status(400).json({ error: 'Název a kategorie jsou povinné' });
+    }
+
+    if (!['type', 'time'].includes(category)) {
+      return res.status(400).json({ error: 'Kategorie musí být "type" nebo "time"' });
+    }
+
+    const tagId = tagDb.create(name, category);
+    res.json({ id: tagId, message: 'Tag vytvořen' });
+  } catch (error) {
+    if (error.message.includes('UNIQUE')) {
+      return res.status(400).json({ error: 'Tag s tímto názvem již existuje' });
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT: Aktualizuj tag
+app.put('/api/tags/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, category } = req.body;
+
+    if (!name || !category) {
+      return res.status(400).json({ error: 'Název a kategorie jsou povinné' });
+    }
+
+    if (!['type', 'time'].includes(category)) {
+      return res.status(400).json({ error: 'Kategorie musí být "type" nebo "time"' });
+    }
+
+    tagDb.update(id, name, category);
+    res.json({ message: 'Tag aktualizován' });
+  } catch (error) {
+    if (error.message.includes('UNIQUE')) {
+      return res.status(400).json({ error: 'Tag s tímto názvem již existuje' });
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE: Smaž tag
+app.delete('/api/tags/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    tagDb.delete(id);
+    res.json({ message: 'Tag smazán' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET: Načti tagy pro konkrétní recept
+app.get('/api/recipes/:id/tags', (req, res) => {
+  try {
+    const { id } = req.params;
+    const tags = tagDb.getByRecipeId(id);
+    res.json(tags);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST: Přiřaď tagy k receptu
+app.post('/api/recipes/:id/tags', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tagIds } = req.body;
+
+    if (!Array.isArray(tagIds)) {
+      return res.status(400).json({ error: 'tagIds musí být pole' });
+    }
+
+    tagDb.setRecipeTags(id, tagIds);
+    res.json({ message: 'Tagy přiřazeny' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

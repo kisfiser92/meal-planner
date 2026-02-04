@@ -34,18 +34,34 @@ const editRecipeInstructionsInput = document.getElementById('editRecipeInstructi
 const btnCopyList = document.getElementById('btnCopyList');
 const shoppingListContent = document.getElementById('shoppingListContent');
 
+const btnManageTags = document.getElementById('btnManageTags');
+const modalManageTags = document.getElementById('modalManageTags');
+const tagNameInput = document.getElementById('tagName');
+const tagCategorySelect = document.getElementById('tagCategory');
+const btnSaveTag = document.getElementById('btnSaveTag');
+const tagsListDiv = document.getElementById('tagsList');
+const recipeTagsSelectDiv = document.getElementById('recipeTagsSelect');
+const editRecipeTagsSelectDiv = document.getElementById('editRecipeTagsSelect');
+const filterTagsSelectDiv = document.getElementById('filterTagsSelect');
+
 let currentEditRecipeId = null;
 let allRecipes = [];
 let currentShoppingList = [];
 let currentMealPlan = [];
+let allTags = [];
+let selectedRecipeTags = [];
+let selectedEditRecipeTags = [];
+let selectedFilterTags = [];
 
 loadMealPlan();
 
 btnGenerateWeek.addEventListener('click', generateNewWeek);
 btnViewRecipes.addEventListener('click', showRecipesList);
 btnShoppingList.addEventListener('click', showShoppingList);
+btnManageTags.addEventListener('click', showManageTags);
 btnAddRecipeModal.addEventListener('click', () => {
   closeModal(modalRecipesList);
+  loadTagsForRecipeForm();
   openModal(modalAddRecipe);
 });
 
@@ -56,6 +72,7 @@ closeBtns.forEach(btn => {
     closeModal(modalRecipesList);
     closeModal(modalEditRecipe);
     closeModal(modalShoppingList);
+    closeModal(modalManageTags);
   });
 });
 
@@ -70,6 +87,7 @@ btnImportUrl.addEventListener('click', importFromUrl);
 btnSaveManual.addEventListener('click', saveManualRecipe);
 btnSaveEdit.addEventListener('click', saveEditedRecipe);
 btnCopyList.addEventListener('click', copyShoppingList);
+btnSaveTag.addEventListener('click', saveTag);
 
 searchRecipesInput.addEventListener('input', filterAndSortRecipes);
 sortRecipesSelect.addEventListener('change', filterAndSortRecipes);
@@ -80,6 +98,7 @@ window.addEventListener('click', (e) => {
   if (e.target === modalRecipesList) closeModal(modalRecipesList);
   if (e.target === modalEditRecipe) closeModal(modalEditRecipe);
   if (e.target === modalShoppingList) closeModal(modalShoppingList);
+  if (e.target === modalManageTags) closeModal(modalManageTags);
 });
 
 async function loadMealPlan() {
@@ -575,34 +594,44 @@ async function saveManualRecipe() {
   const name = recipeNameInput.value.trim();
   const ingredientsText = recipeIngredientsInput.value.trim();
   const instructions = recipeInstructionsInput.value.trim();
-  
+
   if (!name || !ingredientsText || !instructions) {
     alert('Vyplň všechna pole');
     return;
   }
-  
+
   const ingredients = ingredientsText.split('\n').filter(i => i.trim());
-  
+
   try {
     const response = await fetch(`${API_URL}/recipes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, ingredients, instructions })
     });
-    
+
     const data = await response.json();
-    
+
     if (data.error) {
       alert(data.error);
       return;
     }
-    
+
+    // Ulož tagy, pokud byly vybrány
+    if (selectedRecipeTags.length > 0) {
+      await fetch(`${API_URL}/recipes/${data.id}/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tagIds: selectedRecipeTags })
+      });
+    }
+
     alert('✓ Recept uložen!');
-    
+
     recipeNameInput.value = '';
     recipeIngredientsInput.value = '';
     recipeInstructionsInput.value = '';
-    
+    selectedRecipeTags = [];
+
     closeModal(modalAddRecipe);
   } catch (error) {
     alert('Chyba: ' + error.message);
@@ -612,11 +641,14 @@ async function saveManualRecipe() {
 async function showRecipesList() {
   recipesListDiv.innerHTML = '<p class="loading">Načítám recepty...</p>';
   openModal(modalRecipesList);
-  
+
+  // Načti tagy pro filtrování
+  await loadTagsForFilter();
+
   try {
     const response = await fetch(`${API_URL}/recipes`);
     allRecipes = await response.json();
-    
+
     if (allRecipes.length === 0) {
       recipesListDiv.innerHTML = `
         <div class="empty-state">
@@ -627,7 +659,7 @@ async function showRecipesList() {
       `;
       return;
     }
-    
+
     filterAndSortRecipes();
   } catch (error) {
     recipesListDiv.innerHTML = `<p class="loading error">Chyba: ${error.message}</p>`;
@@ -638,9 +670,19 @@ function filterAndSortRecipes() {
   const searchTerm = searchRecipesInput.value.toLowerCase();
   const sortBy = sortRecipesSelect.value;
 
-  let filtered = allRecipes.filter(recipe =>
-    recipe.name.toLowerCase().includes(searchTerm)
-  );
+  let filtered = allRecipes.filter(recipe => {
+    // Filtr podle textu
+    const matchesSearch = recipe.name.toLowerCase().includes(searchTerm);
+
+    // Filtr podle tagů
+    let matchesTags = true;
+    if (selectedFilterTags.length > 0) {
+      const recipeTagIds = (recipe.tags || []).map(t => t.id);
+      matchesTags = selectedFilterTags.every(tagId => recipeTagIds.includes(tagId));
+    }
+
+    return matchesSearch && matchesTags;
+  });
 
   filtered.sort((a, b) => {
     if (sortBy === 'name') {
@@ -671,6 +713,13 @@ function renderRecipesList(recipes) {
       <div class="recipe-item-header">
         <h3 class="recipe-item-title">${recipe.name}</h3>
       </div>
+      ${recipe.tags && recipe.tags.length > 0 ? `
+        <div class="recipe-tags">
+          ${recipe.tags.map(tag => `
+            <span class="tag tag-${tag.category}">${tag.name}</span>
+          `).join('')}
+        </div>
+      ` : ''}
       <div class="recipe-item-actions">
         <button class="btn btn-small btn-secondary" onclick="showRecipeDetail(${recipe.id})">
           👁️ Detail
@@ -752,17 +801,21 @@ async function editRecipe(recipeId) {
     const response = await fetch(`${API_URL}/recipes`);
     const recipes = await response.json();
     const recipe = recipes.find(r => r.id === recipeId);
-    
+
     if (!recipe) {
       alert('Recept nenalezen');
       return;
     }
-    
+
     currentEditRecipeId = recipeId;
     editRecipeNameInput.value = recipe.name;
     editRecipeIngredientsInput.value = recipe.ingredients.join('\n');
     editRecipeInstructionsInput.value = recipe.instructions;
-    
+
+    // Načti tagy pro tento recept
+    selectedEditRecipeTags = recipe.tags ? recipe.tags.map(t => t.id) : [];
+    await loadTagsForEditForm();
+
     closeModal(modalRecipesList);
     openModal(modalEditRecipe);
   } catch (error) {
@@ -774,22 +827,29 @@ async function saveEditedRecipe() {
   const name = editRecipeNameInput.value.trim();
   const ingredientsText = editRecipeIngredientsInput.value.trim();
   const instructions = editRecipeInstructionsInput.value.trim();
-  
+
   if (!name || !ingredientsText || !instructions) {
     alert('Vyplň všechna pole');
     return;
   }
-  
+
   const ingredients = ingredientsText.split('\n').filter(i => i.trim());
-  
+
   try {
     const response = await fetch(`${API_URL}/recipes/${currentEditRecipeId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, ingredients, instructions })
     });
-    
+
     if (response.ok) {
+      // Aktualizuj tagy
+      await fetch(`${API_URL}/recipes/${currentEditRecipeId}/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tagIds: selectedEditRecipeTags })
+      });
+
       alert('✓ Recept upraven!');
       closeModal(modalEditRecipe);
       showRecipesList();
@@ -825,7 +885,229 @@ async function deleteRecipe(recipeId, recipeName) {
   }
 }
 
+// === SPRÁVA TAGŮ ===
+
+async function showManageTags() {
+  tagsListDiv.innerHTML = '<p class="loading">Načítám štítky...</p>';
+  openModal(modalManageTags);
+
+  await loadTags();
+  renderTagsList();
+}
+
+async function loadTags() {
+  try {
+    const response = await fetch(`${API_URL}/tags`);
+    allTags = await response.json();
+  } catch (error) {
+    console.error('Chyba načítání tagů:', error);
+    allTags = [];
+  }
+}
+
+function renderTagsList() {
+  if (allTags.length === 0) {
+    tagsListDiv.innerHTML = '<p class="empty-state">Zatím žádné štítky</p>';
+    return;
+  }
+
+  const groupedTags = {
+    type: allTags.filter(t => t.category === 'type'),
+    time: allTags.filter(t => t.category === 'time')
+  };
+
+  const html = `
+    <div class="tags-groups">
+      <div class="tag-group">
+        <h4>Typ jídla</h4>
+        <div class="tags-container">
+          ${groupedTags.type.map(tag => `
+            <div class="tag-item">
+              <span class="tag tag-type">${tag.name}</span>
+              <button class="btn-icon-small" onclick="deleteTag(${tag.id}, '${tag.name}')" title="Smazat">❌</button>
+            </div>
+          `).join('')}
+          ${groupedTags.type.length === 0 ? '<p class="empty-state-small">Žádné štítky</p>' : ''}
+        </div>
+      </div>
+
+      <div class="tag-group">
+        <h4>Časová náročnost</h4>
+        <div class="tags-container">
+          ${groupedTags.time.map(tag => `
+            <div class="tag-item">
+              <span class="tag tag-time">${tag.name}</span>
+              <button class="btn-icon-small" onclick="deleteTag(${tag.id}, '${tag.name}')" title="Smazat">❌</button>
+            </div>
+          `).join('')}
+          ${groupedTags.time.length === 0 ? '<p class="empty-state-small">Žádné štítky</p>' : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  tagsListDiv.innerHTML = html;
+}
+
+async function saveTag() {
+  const name = tagNameInput.value.trim();
+  const category = tagCategorySelect.value;
+
+  if (!name || !category) {
+    alert('Vyplň název i kategorii');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/tags`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, category })
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      alert(data.error);
+      return;
+    }
+
+    alert('✓ Štítek přidán!');
+    tagNameInput.value = '';
+    tagCategorySelect.value = '';
+
+    await loadTags();
+    renderTagsList();
+  } catch (error) {
+    alert('Chyba: ' + error.message);
+  }
+}
+
+async function deleteTag(tagId, tagName) {
+  if (!confirm(`Opravdu chceš smazat štítek "${tagName}"?`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/tags/${tagId}`, {
+      method: 'DELETE'
+    });
+
+    if (response.ok) {
+      alert('✓ Štítek smazán!');
+      await loadTags();
+      renderTagsList();
+    } else {
+      alert('Chyba při mazání štítku');
+    }
+  } catch (error) {
+    alert('Chyba: ' + error.message);
+  }
+}
+
+// === TAGY PRO RECEPTY ===
+
+async function loadTagsForRecipeForm() {
+  await loadTags();
+  selectedRecipeTags = [];
+  renderTagsCheckboxes(recipeTagsSelectDiv, selectedRecipeTags, 'toggleRecipeTag');
+}
+
+async function loadTagsForEditForm() {
+  await loadTags();
+  renderTagsCheckboxes(editRecipeTagsSelectDiv, selectedEditRecipeTags, 'toggleEditRecipeTag');
+}
+
+async function loadTagsForFilter() {
+  await loadTags();
+  renderTagsCheckboxes(filterTagsSelectDiv, selectedFilterTags, 'toggleFilterTag');
+}
+
+function renderTagsCheckboxes(container, selectedTags, toggleFunction) {
+  if (allTags.length === 0) {
+    container.innerHTML = '<p class="empty-state-small">Zatím žádné štítky. Vytvoř je v Správě štítků.</p>';
+    return;
+  }
+
+  const groupedTags = {
+    type: allTags.filter(t => t.category === 'type'),
+    time: allTags.filter(t => t.category === 'time')
+  };
+
+  const html = `
+    <div class="tags-select-groups">
+      ${groupedTags.type.length > 0 ? `
+        <div class="tag-select-group">
+          <h5>Typ jídla</h5>
+          <div class="tags-checkboxes">
+            ${groupedTags.type.map(tag => `
+              <label class="tag-checkbox">
+                <input type="checkbox"
+                  value="${tag.id}"
+                  ${selectedTags.includes(tag.id) ? 'checked' : ''}
+                  onchange="${toggleFunction}(${tag.id})">
+                <span class="tag tag-type">${tag.name}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      ${groupedTags.time.length > 0 ? `
+        <div class="tag-select-group">
+          <h5>Časová náročnost</h5>
+          <div class="tags-checkboxes">
+            ${groupedTags.time.map(tag => `
+              <label class="tag-checkbox">
+                <input type="checkbox"
+                  value="${tag.id}"
+                  ${selectedTags.includes(tag.id) ? 'checked' : ''}
+                  onchange="${toggleFunction}(${tag.id})">
+                <span class="tag tag-time">${tag.name}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+function toggleRecipeTag(tagId) {
+  const index = selectedRecipeTags.indexOf(tagId);
+  if (index > -1) {
+    selectedRecipeTags.splice(index, 1);
+  } else {
+    selectedRecipeTags.push(tagId);
+  }
+}
+
+function toggleEditRecipeTag(tagId) {
+  const index = selectedEditRecipeTags.indexOf(tagId);
+  if (index > -1) {
+    selectedEditRecipeTags.splice(index, 1);
+  } else {
+    selectedEditRecipeTags.push(tagId);
+  }
+}
+
+function toggleFilterTag(tagId) {
+  const index = selectedFilterTags.indexOf(tagId);
+  if (index > -1) {
+    selectedFilterTags.splice(index, 1);
+  } else {
+    selectedFilterTags.push(tagId);
+  }
+  filterAndSortRecipes();
+}
+
 window.showRecipeDetail = showRecipeDetail;
 window.editRecipe = editRecipe;
 window.deleteRecipe = deleteRecipe;
 window.toggleShoppingItem = toggleShoppingItem;
+window.deleteTag = deleteTag;
+window.toggleRecipeTag = toggleRecipeTag;
+window.toggleEditRecipeTag = toggleEditRecipeTag;
+window.toggleFilterTag = toggleFilterTag;
