@@ -1,10 +1,12 @@
-name: Deploy Jolly to GitHub Pages
+name: Deploy game score counters to GitHub Pages
 
 on:
   push:
     branches: [main]
     paths:
       - 'frontend/jolly.html'
+      - 'frontend/cornhole.html'
+      - 'frontend/games-index.html'
       - '.github/workflows/deploy-jolly-pages.yml'
   workflow_dispatch:
 
@@ -28,7 +30,9 @@ jobs:
       - name: Prepare site
         run: |
           mkdir -p site
-          cp frontend/jolly.html site/index.html
+          cp frontend/games-index.html site/index.html
+          cp frontend/jolly.html site/jolly.html
+          cp frontend/cornhole.html site/cornhole.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
