@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cornhole pontszámláló</title>
+<style>
+  :root {
+    --bg: #f2f4ea;
+    --card: #ffffff;
+    --ink: #2b2b2b;
+    --muted: #7a7a7a;
+    --accent: #2e6b3e;
+    --accent-dark: #204d2c;
+    --border: #dde3d0;
+    --plus: #2e7d32;
+    --minus: #c62828;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    padding: 16px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 {
+    font-size: 1.5rem;
+    text-align: center;
+    margin: 8px 0 20px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .card h2 {
+    margin: 0 0 14px;
+    font-size: 1.05rem;
+  }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  input[type=text], input[type=number], select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    background: #fff;
+  }
+  .team-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .team-row input[type=text] { flex: 1; }
+  .btn {
+    display: inline-block;
+    border: none;
+    border-radius: 8px;
+    padding: 11px 18px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-secondary { background: #e7ebdd; color: var(--ink); }
+  .btn-secondary:hover { background: #dbe1c9; }
+  .btn-block { width: 100%; }
+  .row-actions { display: flex; gap: 10px; margin-top: 10px; }
+  .round-teams {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+  .round-team-box {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .round-team-box h3 {
+    margin: 0 0 10px;
+    font-size: 0.95rem;
+    text-align: center;
+  }
+  .field-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .field-pair > div { text-align: center; }
+  .field-pair label { text-align: center; font-size: 0.75rem; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  th, td {
+    padding: 8px 6px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; }
+  tbody tr:last-child td { border-bottom: none; }
+  tfoot td {
+    font-weight: 700;
+    border-top: 2px solid var(--ink);
+    font-size: 1rem;
+  }
+  .pos { color: var(--plus); }
+  .zero { color: var(--muted); }
+  .table-scroll { overflow-x: auto; }
+  .hidden { display: none !important; }
+  .muted { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+  .top-actions { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 10px; }
+  .link-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0;
+  }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+    gap: 8px;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .win-banner {
+    background: var(--accent);
+    color: #fff;
+    text-align: center;
+    padding: 14px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 16px;
+  }
+  .target-row { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+  .target-row label { margin-bottom: 0; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🌽 Cornhole pontszámláló</h1>
+
+  <!-- SETUP SCREEN -->
+  <div id="setupScreen" class="card">
+    <h2>Csapatok</h2>
+    <div class="team-row">
+      <input type="text" id="teamAName" placeholder="1. csapat neve" value="Mi">
+    </div>
+    <div class="team-row">
+      <input type="text" id="teamBName" placeholder="2. csapat neve" value="Ők">
+    </div>
+    <div class="target-row">
+      <label for="targetScore">Játék eddig a pontig:</label>
+      <input type="number" id="targetScore" min="1" value="21" style="width:80px;">
+    </div>
+    <div class="row-actions">
+      <button class="btn btn-primary btn-block" id="btnStartGame">Játék indítása</button>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="gameScreen" class="hidden">
+    <div class="top-actions">
+      <button class="link-btn" id="btnEditTeams">Csapatok szerkesztése</button>
+      <button class="link-btn" id="btnResetGame">Új játék</button>
+    </div>
+
+    <div id="winBanner" class="win-banner hidden"></div>
+
+    <div class="card">
+      <h2>Új kör (frame) rögzítése</h2>
+      <p class="muted">Add meg mindkét csapatnál, hány zsák ment lyukba (3 pont/db) és hány maradt a táblán (1 pont/db). A kör végén a pontok "kioltják" egymást — csak a különbség számít a vezető csapatnak.</p>
+      <div class="round-teams">
+        <div class="round-team-box">
+          <h3 id="roundLabelA"></h3>
+          <div class="field-pair">
+            <div>
+              <label>Lyukban</label>
+              <input type="number" min="0" max="4" id="aHole" placeholder="0">
+            </div>
+            <div>
+              <label>Táblán</label>
+              <input type="number" min="0" max="4" id="aBoard" placeholder="0">
+            </div>
+          </div>
+        </div>
+        <div class="round-team-box">
+          <h3 id="roundLabelB"></h3>
+          <div class="field-pair">
+            <div>
+              <label>Lyukban</label>
+              <input type="number" min="0" max="4" id="bHole" placeholder="0">
+            </div>
+            <div>
+              <label>Táblán</label>
+              <input type="number" min="0" max="4" id="bBoard" placeholder="0">
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="btnAddRound">Kör hozzáadása</button>
+    </div>
+
+    <div class="card">
+      <h2>Állás</h2>
+      <div class="table-scroll">
+        <table id="scoreTable">
+          <thead><tr id="scoreHead"></tr></thead>
+          <tbody id="scoreBody"></tbody>
+          <tfoot><tr id="scoreFoot"></tr></tfoot>
+        </table>
+      </div>
+      <p class="muted" id="noRounds">Még nincs rögzített kör.</p>
+    </div>
+
+    <div class="card" id="historyCard">
+      <h2>Körök előzménye</h2>
+      <div id="historyList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'cornhole-game-state-v1';
+
+const savedState = loadState();
+let state = savedState || {
+  teamA: 'Mi',
+  teamB: 'Ők',
+  target: 21,
+  rounds: [] // each round: { aHole, aBoard, bHole, bBoard }
+};
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+// ---------- SETUP SCREEN ----------
+
+document.getElementById('btnStartGame').addEventListener('click', () => {
+  const a = document.getElementById('teamAName').value.trim();
+  const b = document.getElementById('teamBName').value.trim();
+  const target = parseInt(document.getElementById('targetScore').value, 10);
+
+  if (!a || !b) {
+    alert('Add meg mindkét csapat nevét.');
+    return;
+  }
+  if (isNaN(target) || target < 1) {
+    alert('Adj meg érvényes célpontszámot.');
+    return;
+  }
+
+  state.teamA = a;
+  state.teamB = b;
+  state.target = target;
+  saveState();
+  showGameScreen();
+});
+
+document.getElementById('btnEditTeams').addEventListener('click', () => {
+  showSetupScreen();
+});
+
+document.getElementById('btnResetGame').addEventListener('click', () => {
+  if (!confirm('Biztosan törlöd az összes kört és az eredményt? Ez nem vonható vissza.')) return;
+  state = { teamA: 'Mi', teamB: 'Ők', target: 21, rounds: [] };
+  saveState();
+  showSetupScreen();
+});
+
+function showSetupScreen() {
+  document.getElementById('teamAName').value = state.teamA;
+  document.getElementById('teamBName').value = state.teamB;
+  document.getElementById('targetScore').value = state.target;
+  document.getElementById('setupScreen').classList.remove('hidden');
+  document.getElementById('gameScreen').classList.add('hidden');
+}
+
+function showGameScreen() {
+  document.getElementById('setupScreen').classList.add('hidden');
+  document.getElementById('gameScreen').classList.remove('hidden');
+  document.getElementById('roundLabelA').textContent = state.teamA;
+  document.getElementById('roundLabelB').textContent = state.teamB;
+  renderScoreTable();
+  renderHistory();
+}
+
+// ---------- ROUND ENTRY ----------
+
+document.getElementById('btnAddRound').addEventListener('click', () => {
+  const aHole = readCount('aHole');
+  const aBoard = readCount('aBoard');
+  const bHole = readCount('bHole');
+  const bBoard = readCount('bBoard');
+
+  if (aHole === null || aBoard === null || bHole === null || bBoard === null) {
+    alert('Csak 0 és 4 közötti számokat lehet megadni.');
+    return;
+  }
+  if (aHole + aBoard > 4) {
+    alert(`${state.teamA}: legfeljebb 4 zsák lehet összesen (lyuk + tábla).`);
+    return;
+  }
+  if (bHole + bBoard > 4) {
+    alert(`${state.teamB}: legfeljebb 4 zsák lehet összesen (lyuk + tábla).`);
+    return;
+  }
+
+  state.rounds.push({ aHole, aBoard, bHole, bBoard });
+  saveState();
+  ['aHole', 'aBoard', 'bHole', 'bBoard'].forEach(id => document.getElementById(id).value = '');
+  renderScoreTable();
+  renderHistory();
+});
+
+function readCount(id) {
+  const raw = document.getElementById(id).value;
+  const v = raw === '' ? 0 : parseInt(raw, 10);
+  if (isNaN(v) || v < 0 || v > 4) return null;
+  return v;
+}
+
+// ---------- SCORE CALCULATION ----------
+
+function computeRoundResult(round) {
+  const rawA = round.aHole * 3 + round.aBoard;
+  const rawB = round.bHole * 3 + round.bBoard;
+  const diff = rawA - rawB;
+  return {
+    rawA, rawB,
+    deltaA: diff > 0 ? diff : 0,
+    deltaB: diff < 0 ? -diff : 0
+  };
+}
+
+function computeTotals() {
+  let totalA = 0, totalB = 0;
+  state.rounds.forEach(round => {
+    const r = computeRoundResult(round);
+    totalA += r.deltaA;
+    totalB += r.deltaB;
+  });
+  return { totalA, totalB };
+}
+
+// ---------- SCORE TABLE ----------
+
+function renderScoreTable() {
+  const head = document.getElementById('scoreHead');
+  const body = document.getElementById('scoreBody');
+  const foot = document.getElementById('scoreFoot');
+  const noRounds = document.getElementById('noRounds');
+  const winBanner = document.getElementById('winBanner');
+
+  head.innerHTML = `<th>Kör</th><th>${escapeHtml(state.teamA)}</th><th>${escapeHtml(state.teamB)}</th>`;
+
+  body.innerHTML = '';
+  let runningA = 0, runningB = 0;
+  state.rounds.forEach((round, i) => {
+    const r = computeRoundResult(round);
+    runningA += r.deltaA;
+    runningB += r.deltaB;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${i + 1}.</td><td>${fmt(r.deltaA)}</td><td>${fmt(r.deltaB)}</td>`;
+    body.appendChild(tr);
+  });
+
+  foot.innerHTML = `<td>Össz.</td><td>${fmt(runningA)}</td><td>${fmt(runningB)}</td>`;
+
+  document.getElementById('scoreTable').classList.toggle('hidden', state.rounds.length === 0);
+  noRounds.classList.toggle('hidden', state.rounds.length !== 0);
+
+  if (runningA >= state.target || runningB >= state.target) {
+    const winner = runningA >= runningB ? state.teamA : state.teamB;
+    winBanner.textContent = `🏆 ${winner} nyert! (${Math.max(runningA, runningB)} pont)`;
+    winBanner.classList.remove('hidden');
+  } else {
+    winBanner.classList.add('hidden');
+  }
+}
+
+function fmt(n) {
+  return n > 0 ? `<span class="pos">+${n}</span>` : `<span class="zero">0</span>`;
+}
+
+// ---------- HISTORY ----------
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  const card = document.getElementById('historyCard');
+  list.innerHTML = '';
+
+  if (state.rounds.length === 0) {
+    card.classList.add('hidden');
+    return;
+  }
+  card.classList.remove('hidden');
+
+  state.rounds.forEach((round, i) => {
+    const text = `${escapeHtml(state.teamA)}: ${round.aHole} lyuk / ${round.aBoard} tábla — ` +
+                 `${escapeHtml(state.teamB)}: ${round.bHole} lyuk / ${round.bBoard} tábla`;
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    item.innerHTML = `<span>${i + 1}. kör — ${text}</span>`;
+    if (i === state.rounds.length - 1) {
+      const del = document.createElement('button');
+      del.className = 'link-btn';
+      del.textContent = 'Visszavonás';
+      del.addEventListener('click', () => {
+        state.rounds.pop();
+        saveState();
+        renderScoreTable();
+        renderHistory();
+      });
+      item.appendChild(del);
+    }
+    list.appendChild(item);
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---------- INIT ----------
+
+if (savedState) {
+  showGameScreen();
+} else {
+  showSetupScreen();
+}
+</script>
+</body>
+</html>
